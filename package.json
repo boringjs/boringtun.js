@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "description": "A userspace WireGuard VPN implementation for NodeJS based on BoringTun",
   "main": "index.js",
+  "repository": {
+    "url": "git@github.com:boringjs/boringtun.js.git"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
