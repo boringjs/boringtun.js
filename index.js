@@ -1,1 +1,1 @@
-// Init commit 
+module.exports = {}
