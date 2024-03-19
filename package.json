@@ -1,0 +1,12 @@
+{
+  "name": "boringtunjs",
+  "version": "0.0.1",
+  "description": "A userspace WireGuard VPN implementation for NodeJS based on BoringTun",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Andrei Smolnikov",
+  "license": "BSD-3-Clause"
+}
