@@ -4,6 +4,13 @@ project(boringtunjs)
 
 set(CMAKE_CXX_STANDARD 17)
 
+if ($ENV{CLION_IDE})
+    exec_program(npx ${CMAKE_CURRENT_SOURCE_DIR}
+            ARGS cmake-js print-cmakejs-include -l error
+            OUTPUT_VARIABLE CMAKE_JS_INC
+    )
+endif ()
+
 include_directories(${CMAKE_JS_INC})
 
 file(GLOB SOURCE_FILES "lib/*.cpp" "boringtun/boringtun/src/wireguard_ffi.h")
