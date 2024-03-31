@@ -1,0 +1,3 @@
+[submodule "boringtun"]
+	path = boringtun
+	url = git@github.com:cloudflare/boringtun.git
