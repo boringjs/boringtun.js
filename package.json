@@ -7,7 +7,10 @@
     "url": "git+ssh://git@github.com/boringjs/boringtun.js.git"
   },
   "scripts": {
-    "build-bindings": "cmake-js compile",
+    "build:mac_m": "BUILD_DIR=mac_m cmake-js compile",
+    "build:mac_intel": "BUILD_DIR=mac_intel cmake-js compile",
+    "build:win": "set BUILD_DIR=win && cmake-js compile",
+    "build:linux": "BUILD_DIR=linux cmake-js compile",
     "build-boringtun": "cd boringtun && cargo build --lib --release --no-default-features --features \"ffi-bindings\"",
     "update-gitmodules": "git submodule update",
     "test": "echo \"Error: no test specified\" && exit 1"
