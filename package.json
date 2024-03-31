@@ -7,6 +7,9 @@
     "url": "git+ssh://git@github.com/boringjs/boringtun.js.git"
   },
   "scripts": {
+    "build-bindings": "cmake-js compile",
+    "build-boringtun": "cd boringtun && cargo build --lib --release --no-default-features --features \"ffi-bindings\"",
+    "update-gitmodules": "git submodule update",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
