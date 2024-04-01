@@ -51,6 +51,6 @@ jobs:
       - name: Archive Production Artifacts
         uses: actions/upload-artifact@v1
         with:
-          name: ${{ matrix.artifact-artifacts }}
+          name: ${{ matrix.artifact-name }}
           path: ./build/${{ matrix.artifact-name }}/boringtunjs.node
 
