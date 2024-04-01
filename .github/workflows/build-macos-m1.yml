@@ -1,4 +1,4 @@
-name: Build for MacOS
+name: Build for MacOS M-chip
 
 on:
   push:
@@ -14,18 +14,18 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
-    name: Build on macOS
+    runs-on: macos-14  # macOS	3 (M1)	7 GB	14 GB	macos-14 [Beta]
+    name: Build on MacOS M-chip
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: 'recursive'
 
       - name: Setup Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
 
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -40,11 +40,11 @@ jobs:
         run: npm run build:boringtun
 
       - name: Build
-        run: npm run build:mac
+        run: npm run build:mac_m
 
       - name: Archive Production Artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: macos-m1-artifacts
-          path: ./build/mac/boringtunjs.node
+          name: macos-m-artifacts
+          path: ./build/mac_m/boringtunjs.node
 
