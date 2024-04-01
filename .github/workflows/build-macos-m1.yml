@@ -1,4 +1,4 @@
-name: Build for MacOS M-chip
+name: Building Boringtunjs
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: Build on MacOS M-chip
+    name: Build Boringtunjs
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
