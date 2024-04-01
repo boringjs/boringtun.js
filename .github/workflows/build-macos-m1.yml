@@ -29,7 +29,7 @@ jobs:
       - name: Install NodeJS Dependencies
         run: npm install
 
-      - name: Build Boringtun
+      - name: Build Boringtun for MacOS M-chip
         run: npm run build:boringtun
 
       - name: Build
