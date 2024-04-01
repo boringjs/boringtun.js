@@ -1,4 +1,4 @@
-name: Build for macOS M1
+name: Build for MacOS
 
 on:
   push:
@@ -15,11 +15,12 @@ on:
 jobs:
   build:
     runs-on: macos-latest
-    name: Build on macOS M1
+    name: Build on macOS
     steps:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
+          submodules: 'recursive'
 
       - name: Setup Node.js
         uses: actions/setup-node@v2
@@ -31,20 +32,19 @@ jobs:
         with:
           toolchain: stable
           default: true
-          target: aarch64-apple-darwin
-
-      - name: Build Boringtun
-        run: npm run build:boringtun
 
       - name: Install NodeJS Dependencies
         run: npm install
 
+      - name: Build Boringtun
+        run: npm run build:boringtun
+
       - name: Build
-        run: npm run build:mac_m
+        run: npm run build:mac
 
       - name: Archive Production Artifacts
         uses: actions/upload-artifact@v2
         with:
           name: macos-m1-artifacts
-          path: ./build/mac_m/boringtunjs.node
+          path: ./build/mac/boringtunjs.node
 

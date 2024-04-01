@@ -7,8 +7,8 @@
     "url": "git+ssh://git@github.com/boringjs/boringtun.js.git"
   },
   "scripts": {
-    "build:mac_m": "BUILD_DIR=mac_m CMAKE_JS_ARCH=arm64 cmake-js compile",
-    "build:mac_intel": "BUILD_DIR=mac_intel cmake-js compile",
+    "clean": "rm -rf ./build",
+    "build:mac": "BUILD_DIR=mac CMAKE_JS_ARCH=arm64 cmake-js compile",
     "build:win": "set BUILD_DIR=win && cmake-js compile",
     "build:linux": "BUILD_DIR=linux cmake-js compile",
     "build:boringtun": "cd boringtun && cargo build --lib --release --no-default-features --features \"ffi-bindings\"",

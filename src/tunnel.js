@@ -1,5 +1,6 @@
 const PLATFORMS = {
-  ["darwin@arm64"]: '../build/mac_m/boringtunjs.node'
+  ["darwin@arm64"]: '../build/mac/boringtunjs.node',
+  ["darwin@intel"]: '../build/mac/boringtunjs.node'
 }
 
 const pathToBindings = PLATFORMS[`${process.platform}@${process.arch}`]
