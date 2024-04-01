@@ -2,6 +2,7 @@
 
 #include <node_api.h>
 #include <iostream>
+#include <cstring>
 
 extern "C" {
 #include "../boringtun/boringtun/src/wireguard_ffi.h"
