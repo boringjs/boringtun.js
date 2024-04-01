@@ -8,13 +8,20 @@
   },
   "scripts": {
     "clean": "rm -rf ./build",
-    "build:mac_m": "BUILD_DIR=mac_m CMAKE_JS_ARCH=arm64 cmake-js compile",
-    "build:mac_intel": "BUILD_DIR=mac_intel cmake-js compile",
-    "build:win": "set BUILD_DIR=win && cmake-js compile",
-    "build:linux_x64": "BUILD_DIR=linux_x64 cmake-js compile",
+    "build": "cmake-js compile",
     "build:boringtun": "cd boringtun && cargo build --lib --release --no-default-features --features \"ffi-bindings\"",
     "update:gitmodules": "git submodule update",
+    "install": "node-pre-gyp install --fallback-to-build",
+    "prepublish": "node-pre-gyp package",
+    "prepublishOnly": "node-pre-gyp publish",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "binary": {
+    "module_name": "boringtunjs",
+    "module_path": "./build/{platform}-{arch}/",
+    "host": "https://github.com/boringjs/boringtun.js/releases/download/",
+    "remote_path": "{version}",
+    "package_name": "{platform}-{arch}.tar.gz"
   },
   "keywords": [],
   "author": "Andrei Smolnikov",
