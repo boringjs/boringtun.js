@@ -7,8 +7,21 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14  # macOS	3 (M1)	7 GB	14 GB	macos-14 [Beta]
     name: Build on MacOS M-chip
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact-name: "linux"
+            build-script: "npm run build:linux"
+          - os: macos-14
+            artifact-name: "mac_m"
+            build-script: "npm run build:mac_m"
+          #              - os: macos-latest  # todo
+          #                build-script: "npm run build:mac_intel"
+          #              - os: windows-latest # todo
+          #                build-script: "npm run build:win"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,7 +34,7 @@ jobs:
           node-version: 20
 
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@v2
         with:
           toolchain: stable
           default: true
@@ -29,15 +42,15 @@ jobs:
       - name: Install NodeJS Dependencies
         run: npm install
 
-      - name: Build Boringtun for MacOS M-chip
+      - name: Build Boringtun ${{ matrix.artifact-name }}
         run: npm run build:boringtun
 
       - name: Build
-        run: npm run build:mac_m
+        run: ${{ matrix.build-script }}
 
       - name: Archive Production Artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: macos-m-artifacts
-          path: ./build/mac_m/boringtunjs.node
+          name: ${{ matrix.artifact-artifacts }}
+          path: ./build/${{ matrix.artifact-name }}/boringtunjs.node
 
