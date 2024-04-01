@@ -1,4 +1,4 @@
-name: Building Boringtunjs
+name: Building BoringtunJS
 
 on:
   push:
@@ -7,14 +7,14 @@ on:
 
 jobs:
   build:
-    name: Build Boringtunjs
+    name: Building BoringtunJS
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact-name: "linux"
-            build-script: "npm run build:linux"
+            artifact-name: "linux_x64"
+            build-script: "npm run build:linux_x64"
           - os: macos-14
             artifact-name: "mac_m"
             build-script: "npm run build:mac_m"
