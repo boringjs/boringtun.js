@@ -41,7 +41,7 @@ jobs:
 
       - name: Setup Rust
         # https://github.com/rust-lang/rustup/issues/3409
-        uses: dtolnay/rust-toolchain@nightly # https://github.com/dtolnay/rust-toolchain
+        uses: dtolnay/rust-toolchain@stable # https://github.com/dtolnay/rust-toolchain
 
       - name: Build Boringtun on Unix
         if: runner.os != 'Windows'
