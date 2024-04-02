@@ -6,6 +6,10 @@ A userspace WireGuard VPN implementation for NodeJS based on BoringTun.
 
 This project is at the beginning of its journey. As such, it is currently in its initial development phase, where features are being developed and the architecture is being established.
 
+## Supported platforms
+
+1. MacOS M-chip
+2. Ubuntu 20
 
 ## Acknowledgments
 
