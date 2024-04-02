@@ -10,7 +10,6 @@
     "clean:boringtun": "rm -rf ./boringtun/target/release",
     "clean:build": "rm -rf ./build",
     "build:boringtun": "cd boringtun && cargo build --lib --release --no-default-features --features \"ffi-bindings\"",
-    "build:boringtun:win": "cd boringtun && cargo build --target=x86_64-pc-windows-msvc --lib --release --features=ffi-bindings",
     "build": "cmake-js compile",
     "postinstall": "node ./install/postinstall.js",
     "test": "echo \"Error: no test specified\" && exit 1",
