@@ -18,11 +18,12 @@ if (!fs.existsSync(bindingsPath)) {
   fs.mkdirSync(buildDir, {recursive: true})
   fetch(downloadURL).then(res => {
     if (res.status !== 200) {
-      throw new Error('Boringtunjs: not supported platform. Please report issue.')
+      console.warn('Boringtunjs: not supported platform. Please report issue.')
     }
     return res.arrayBuffer()
   })
     .then(file => fs.writeFileSync(bindingsPath, Buffer.from(file)))
+    .catch(console.error)
 }
 
 
