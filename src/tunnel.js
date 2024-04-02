@@ -1,15 +1,3 @@
-const PLATFORMS = {
-  ["darwin@arm64"]: '../build/mac_m/boringtunjs.node',
-  ["darwin@intel"]: '../build/mac_intel/boringtunjs.node',
-  ["linux@x64"]: '../build/linux_x64/boringtunjs.node'
-}
-
-const pathToBindings = PLATFORMS[`${process.platform}@${process.arch}`]
-
-if (!pathToBindings) {
-  throw new Error(`Platform: ${process.platform} ${process.arch} not supported`)
-}
-
 const {
   generateSecretKeyBase64,
   generateSecretKey,
@@ -22,7 +10,7 @@ const {
   WIREGUARD_ERROR,
   WRITE_TO_TUNNEL_IPV4,
   WRITE_TO_TUNNEL_IPV6,
-} = require(pathToBindings)
+} = require('../build/boringtunjs.node')
 
 /**
  * @typedef {Object} WireguardTunnel

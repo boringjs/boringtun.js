@@ -8,22 +8,19 @@
   },
   "scripts": {
     "clean": "rm -rf ./build",
+    "postinstall": "node ./install/postinstall.js",
     "build": "cmake-js compile",
     "build:boringtun": "cd boringtun && cargo build --lib --release --no-default-features --features \"ffi-bindings\"",
     "update:gitmodules": "git submodule update",
     "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "binary": {
-    "module_name": "boringtunjs",
-    "module_path": "./build/{platform}-{arch}/",
-    "host": "https://github.com/boringjs/boringtun.js/releases/download/",
-    "remote_path": "{version}",
-    "package_name": "{platform}-{arch}.tar.gz"
   },
   "keywords": [],
   "author": "Andrei Smolnikov",
   "license": "BSD-3-Clause",
   "devDependencies": {
     "cmake-js": "^7.3.0"
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0"
   }
 }
