@@ -41,9 +41,7 @@ jobs:
 
       - name: Setup Rust
         # https://github.com/rust-lang/rustup/issues/3409
-        uses: dtolnay/rust-toolchain@master # https://github.com/dtolnay/rust-toolchain
-        with:
-          toolchain: stable
+        uses: dtolnay/rust-toolchain@nightly # https://github.com/dtolnay/rust-toolchain
 
       - name: Build Boringtun
         run: npm run build:boringtun
