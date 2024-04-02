@@ -10,16 +10,16 @@ jobs:
     name: Building Boringtun.JS
     runs-on: ${{ matrix.os }}
     strategy:
-      matrix:
+      matrix: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
         include:
           - os: ubuntu-20.04
             process_platform: "linux"
             process_arch: "x64"
+            node: 20
           - os: macos-14
             process_platform: "darwin"
             process_arch: "arm64"
-        node:
-          - 20
+            node: 20
           # todo: - os: macos-latest
           # todo: - os: windows-latest
     steps:
