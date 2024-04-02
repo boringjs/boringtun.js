@@ -35,10 +35,10 @@ jobs:
           node-version: ${{ matrix.node }}
 
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+        # https://github.com/rust-lang/rustup/issues/3409
+        uses: dtolnay/rust-toolchain@master # https://github.com/dtolnay/rust-toolchain
         with:
           toolchain: stable
-          default: true
 
       - name: Build Boringtun
         run: npm run build:boringtun
