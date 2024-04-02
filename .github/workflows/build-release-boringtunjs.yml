@@ -20,9 +20,14 @@ jobs:
             process_platform: "darwin"
             process_arch: "arm64"
             node: 20
-
-          # todo: - os: macos-latest
-          # todo: - os: windows-latest
+          - os: macos-latest
+            process_platform: "darwin"
+            process_arch: "x64"
+            node: 20
+          - os: windows-latest
+            process_platform: "win32"
+            process_arch: "x64"
+            node: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -67,6 +72,8 @@ jobs:
         run: |
           mv ./boringtunjs-${{ github.ref_name }}-20-linux-x64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-20-linux-x64.node
           mv ./boringtunjs-${{ github.ref_name }}-20-darwin-arm64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-20-darwin-arm64.node
+          mv ./boringtunjs-${{ github.ref_name }}-20-darwin-x64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-20-darwin-x64.node
+          mv ./boringtunjs-${{ github.ref_name }}-20-win32-x64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-20-win32-x64.node
       - name: Create Release
         uses: ncipollo/release-action@v1 # https://github.com/ncipollo/release-action
         with:
