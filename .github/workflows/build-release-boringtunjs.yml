@@ -66,21 +66,23 @@ jobs:
       - name: Archive Production Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: boringtunjs-${{steps.extract_tag.outputs.tag}}-${{ matrix.node }}-${{ matrix.process_platform }}-${{ matrix.process_arch }}
+          name: boringtunjs-${{steps.extract_tag.outputs.tag}}-${{ matrix.node }}-${{ matrix.process_platform }}-${{ matrix.process_arch }}.tar.gz
           path: boringtunjs.tar.gz
 
   create-release:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
           draft: false
           prerelease: false
 
