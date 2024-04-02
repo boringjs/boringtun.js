@@ -11,9 +11,6 @@
     "build": "cmake-js compile",
     "build:boringtun": "cd boringtun && cargo build --lib --release --no-default-features --features \"ffi-bindings\"",
     "update:gitmodules": "git submodule update",
-    "install": "node-pre-gyp install --fallback-to-build",
-    "prepublish": "node-pre-gyp package",
-    "prepublishOnly": "node-pre-gyp publish",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "binary": {

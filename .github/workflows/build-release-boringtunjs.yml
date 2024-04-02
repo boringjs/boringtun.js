@@ -41,13 +41,13 @@ jobs:
           toolchain: stable
           default: true
 
-      - name: Install NodeJS Dependencies
-        run: npm install
-
       - name: Build Boringtun
         run: npm run build:boringtun
 
-      - name: Build
+      - name: Install NodeJS Dependencies
+        run: npm install
+
+      - name: Build # maybe delete this.
         run: npm run build
 
       - name: Compress the boring.node file
