@@ -414,8 +414,8 @@ napi_value WireguardTunnelGetPrivateKey(napi_env env, napi_callback_info info) {
   napi_value js_this;
 
   size_t argc = 0;
-  napi_value args[0];
-  ASSERT_STATUS(napi_get_cb_info(env, info, &argc, args, &js_this, nullptr), "Cannot get args from function");
+//  napi_value args[0];
+  ASSERT_STATUS(napi_get_cb_info(env, info, &argc, nullptr, &js_this, nullptr), "Cannot get args from function");
 
   napi_value wireguard_constructor = NULL;
   ASSERT_STATUS(napi_get_reference_value(env, wireguard_constructor_ref, &wireguard_constructor),
@@ -548,8 +548,8 @@ napi_value WireguardTunnelGetPublicKey(napi_env env, napi_callback_info info) {
   napi_value js_this;
 
   size_t argc = 0;
-  napi_value args[0];
-  ASSERT_STATUS(napi_get_cb_info(env, info, &argc, args, &js_this, nullptr), "Cannot get args from function");
+//  napi_value args[0];
+  ASSERT_STATUS(napi_get_cb_info(env, info, &argc, nullptr, &js_this, nullptr), "Cannot get args from function");
 
   napi_value wireguard_constructor = NULL;
   ASSERT_STATUS(napi_get_reference_value(env, wireguard_constructor_ref, &wireguard_constructor),
