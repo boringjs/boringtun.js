@@ -39,26 +39,12 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
-      - name: Setup Rust on Unix
-        if: runner.os != 'Windows'
+      - name: Setup Rust
         # https://github.com/rust-lang/rustup/issues/3409
         uses: dtolnay/rust-toolchain@stable # https://github.com/dtolnay/rust-toolchain
 
-      - name: Setup Rust on Windows
-        if: runner.os == 'Windows'
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-
-      - name: Build Boringtun on Unix
-        if: runner.os != 'Windows'
+      - name: Build Boringtun
         run: npm run build:boringtun
-
-      - name: Build Boringtun on Windows
-        if: runner.os == 'Windows'
-        run: |
-          cd boringtun && cargo build --lib --release --no-default-features --target=x86_64-pc-windows-msvc
-        shell: pwsh
 
       - name: Install NodeJS Dependencies
         run: npm install
