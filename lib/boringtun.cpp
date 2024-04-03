@@ -480,7 +480,7 @@ napi_value WireguardTunnelReadWrite(napi_env env, napi_callback_info info, WG_OP
   WireguardTunnel *wg = nullptr;
   ASSERT_STATUS(napi_unwrap(env, js_this, reinterpret_cast<void **>(&wg)), "Cannot get instance of native wireguard");
   auto *src = static_cast<uint8_t *>(buffer_data);
-  uint32_t src_size = buffer_length;
+  auto src_size = static_cast<uint32_t>(buffer_length);
   uint32_t dst_size = 2000;
   auto *dst = new uint8_t[dst_size];
   memset(dst, 0, dst_size);
