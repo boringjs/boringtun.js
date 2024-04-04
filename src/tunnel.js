@@ -10,7 +10,7 @@ const {
   WIREGUARD_ERROR,
   WRITE_TO_TUNNEL_IPV4,
   WRITE_TO_TUNNEL_IPV6,
-} = require('../build/boringtunjs.node')
+} = require('../build/lib/boringtunjs.node')
 
 /**
  * @typedef {Object} WireguardTunnel

@@ -16,21 +16,17 @@ jobs:
             process_platform: "linux"
             process_arch: "x64"
             node: 20
-            path: ./build/boringtunjs.node
           - os: macos-14
             process_platform: "darwin"
             process_arch: "arm64"
             node: 20
-            path: ./build/boringtunjs.node
           - os: macos-latest
             process_platform: "darwin"
             process_arch: "x64"
             node: 20
-            path: ./build/boringtunjs.node
           - os: windows-latest
             process_platform: "win32"
             process_arch: "x64"
-            path: ./build/Release/boringtunjs.node
             node: 20
     steps:
       - uses: actions/checkout@v4
@@ -63,7 +59,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: boringtunjs-${{ github.ref_name }}-${{ matrix.node }}-${{ matrix.process_platform }}-${{ matrix.process_arch }}
-          path: ${{ matrix.path }}
+          path: ./build/lib/boringtunjs.node
 
   create-release:
     needs: build

@@ -10,7 +10,7 @@ const nodeVersion = process.version.replace('v', '').split('.')[0]
 
 const downloadURL = `https://github.com/boringjs/boringtun.js/releases/download/v${packageVersion}/boringtunjs-v${packageVersion}-${nodeVersion}-${platform}-${arch}.node`
 
-const buildDir = path.join(__dirname, '..', 'build')
+const buildDir = path.join(__dirname, '..', 'build', 'lib')
 const bindingsPath = path.join(buildDir, 'boringtunjs.node')
 
 if (!fs.existsSync(bindingsPath)) {
