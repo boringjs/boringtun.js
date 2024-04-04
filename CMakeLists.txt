@@ -29,7 +29,7 @@ target_link_libraries(${PROJECT_NAME} ${CMAKE_JS_LIB})
 
 if(WIN32)
     set(BORINGTUN_LIB_NAME "boringtun.lib")
-    target_link_libraries(your_target PRIVATE Ws2_32)
+    target_link_libraries(${PROJECT_NAME} wsock32 WS2_32 Bcrypt Ntdll Userenv)
 else()
     set(BORINGTUN_LIB_NAME "libboringtun.a")
 endif()
