@@ -19,6 +19,7 @@
   "author": "Andrei Smolnikov",
   "license": "BSD-3-Clause",
   "devDependencies": {
-    "cmake-js": "^7.3.0"
+    "cmake-js": "^7.3.0",
+    "jest": "^29.7.0"
   }
 }
