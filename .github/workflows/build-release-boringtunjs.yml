@@ -56,6 +56,9 @@ jobs:
       - name: Build boringtunjs bindings
         run: npm run build
 
+      - name: Tests
+        run: npm test
+
       - name: Archive Production Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -97,4 +100,4 @@ jobs:
       - run: npm ci
       - run: npm publish
         env:
-           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
