@@ -1,6 +1,5 @@
 const fs = require('fs')
 const path = require('path')
-const fetch = require('node-fetch')
 
 const packageJSON = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json')).toString())
 
