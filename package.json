@@ -12,7 +12,7 @@
     "build:boringtun": "cd boringtun/boringtun && cargo build --lib --release --no-default-features --features \"ffi-bindings\"",
     "build": "cmake-js compile",
     "postinstall": "node ./install/postinstall.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "update:gitmodules": "git submodule update"
   },
   "keywords": [],
