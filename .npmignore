@@ -9,3 +9,5 @@ tmp
 .gitignore
 .gitmodules
 CMakeLists.txt
+jest.config.js
+tests
