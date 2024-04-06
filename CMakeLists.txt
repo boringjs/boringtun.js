@@ -27,9 +27,17 @@ endif ()
 
 include_directories(${CMAKE_JS_INC})
 
-file(GLOB SOURCE_FILES "lib/*.cpp" "boringtun/boringtun/src/wireguard_ffi.h")
+file(GLOB SOURCE_FILES "lib/*.cpp" "lib/*.h" boringtun/boringtun/src/wireguard_ffi.h)
 
-add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES})
+add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES}
+        lib/wireguard_tunnel.h
+        lib/wireguard_tunnel_wrapper.cpp
+        lib/wireguard_tunnel_wrapper.h
+        lib/utils.h
+        lib/reference_singleton.cpp
+        lib/reference_singleton.h
+        lib/wireguard_global_wrapper.cpp
+        lib/wireguard_global_wrapper.h)
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
 target_link_libraries(${PROJECT_NAME} ${CMAKE_JS_LIB})
 
