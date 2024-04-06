@@ -91,6 +91,11 @@ jobs:
           mv ./boringtunjs-${{ github.ref_name }}-20-darwin-arm64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-20-darwin-arm64.node
           mv ./boringtunjs-${{ github.ref_name }}-20-darwin-x64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-20-darwin-x64.node
           mv ./boringtunjs-${{ github.ref_name }}-20-win32-x64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-20-win32-x64.node
+          mv ./boringtunjs-${{ github.ref_name }}-18-linux-x64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-18-linux-x64.node
+          mv ./boringtunjs-${{ github.ref_name }}-18-darwin-arm64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-18-darwin-arm64.node
+          mv ./boringtunjs-${{ github.ref_name }}-18-darwin-x64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-18-darwin-x64.node
+          mv ./boringtunjs-${{ github.ref_name }}-18-win32-x64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-18-win32-x64.node
+
       - name: Create Release
         uses: ncipollo/release-action@v1 # https://github.com/ncipollo/release-action
         with:
