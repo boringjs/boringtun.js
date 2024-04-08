@@ -1,21 +1,25 @@
 #pragma once
 
+#include <map>
+#include <utility>
 #include <node_api.h>
 #include "utils.h"
 
-class WireguardConstructorReference {
-private:
-  static WireguardConstructorReference *instance_;
-  napi_ref wireguard_constructor_ref_ = nullptr;
 
-  WireguardConstructorReference() {}
-
+class ReferenceSingleton {
 public:
-  static WireguardConstructorReference *GetInstance();
+  using napi_ref_env = std::pair<napi_ref, napi_env>;
+  static ReferenceSingleton *GetInstance();
 
-  napi_ref SetReference(napi_env env, napi_value wireguard_tunnel_class);
+  napi_ref SetReference(const std::string &key, napi_env env, napi_value value);
 
-  [[maybe_unused]] napi_ref GetReference();
+  napi_ref_env GetRefEnv(const std::string &key);
 
-  napi_value GetClass(napi_env env);
+  bool IsRefExists(const std::string &key);
+private:
+  static ReferenceSingleton *instance_;
+
+  ReferenceSingleton() {}
+
+  std::map<std::string, napi_ref_env> ref_map_;
 };

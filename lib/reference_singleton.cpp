@@ -1,30 +1,45 @@
 #include "reference_singleton.h"
+#include <node_api.h>
 
-WireguardConstructorReference *WireguardConstructorReference::instance_ = nullptr;
+ReferenceSingleton *ReferenceSingleton::instance_ = nullptr;
 
-WireguardConstructorReference *WireguardConstructorReference::GetInstance() {
+ReferenceSingleton *ReferenceSingleton::GetInstance() {
   if (instance_ == nullptr) {
-    instance_ = new WireguardConstructorReference();
+    instance_ = new ReferenceSingleton();
   }
   return instance_;
 }
 
-napi_ref WireguardConstructorReference::SetReference(napi_env env, napi_value wireguard_tunnel_class) {
-  // Why i cannot save wireguard_tunnel_class
-  ASSERT_STATUS(napi_create_reference(env, wireguard_tunnel_class, 1, &wireguard_constructor_ref_),
-                "Cannot assert constructor to class");
+napi_ref ReferenceSingleton::SetReference(const std::string &key, napi_env env, napi_value value) {
+  napi_status status = napi_ok;
 
-  return wireguard_constructor_ref_;
+  if (ref_map_.count(key) > 0) {
+    auto [ref_prev, env_prev] = ref_map_.at(key);
+    status = napi_delete_reference(env_prev, ref_prev);
+    ref_map_.erase(key);
+  }
+
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Problem with deleting napi ref");
+    return nullptr;
+  }
+
+  napi_ref ref = nullptr;
+  status = napi_create_reference(env, value, 1, &ref);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot create reference for napi object");
+    return nullptr;
+  }
+
+  ref_map_[key] = {ref, env};
+
+  return ref;
 }
 
-napi_ref WireguardConstructorReference::GetReference() {
-  return wireguard_constructor_ref_;
+ReferenceSingleton::napi_ref_env ReferenceSingleton::GetRefEnv(const std::string &key) {
+  return ref_map_.at(key);
 }
 
-napi_value WireguardConstructorReference::GetClass(napi_env env) {
-  napi_value wireguard_constructor = nullptr;
-  ASSERT_STATUS(napi_get_reference_value(env, wireguard_constructor_ref_, &wireguard_constructor),
-                "Cannot get reference of constructor");
-
-  return wireguard_constructor;
+bool ReferenceSingleton::IsRefExists(const std::string &key) {
+  return ref_map_.count(key) > 0;
 }

@@ -37,7 +37,8 @@ add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES}
         lib/reference_singleton.cpp
         lib/reference_singleton.h
         lib/wireguard_global_wrapper.cpp
-        lib/wireguard_global_wrapper.h)
+        lib/wireguard_global_wrapper.h
+        lib/wireguard_tunnel.cpp)
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
 target_link_libraries(${PROJECT_NAME} ${CMAKE_JS_LIB})
 

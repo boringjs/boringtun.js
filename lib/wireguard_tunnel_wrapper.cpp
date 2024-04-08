@@ -1,6 +1,8 @@
 #include "wireguard_tunnel_wrapper.h"
 
-napi_value WireguardTunnelConstructor(napi_env env, napi_callback_info info) {
+const std::string kWireguardConstructorName = "WireguardConstructor";
+
+napi_value WireguardTunnelWrapperConstructor(napi_env env, napi_callback_info info) {
   napi_value js_this;
   size_t argc = 5;
   napi_value args[5];
@@ -146,17 +148,26 @@ napi_value WireguardTunnelConstructor(napi_env env, napi_callback_info info) {
   return js_this;
 }
 
-napi_value WireguardTunnelGetPrivateKey(napi_env env, napi_callback_info info) {
+napi_value WireguardTunnelWrapperGetPrivateKey(napi_env env, napi_callback_info info) {
   napi_value result;
   napi_value js_this;
+  napi_status status;
 
   size_t argc = 0;
 //  napi_value args[0];
-  ASSERT_STATUS(napi_get_cb_info(env, info, &argc, nullptr, &js_this, nullptr), "Cannot get args from function");
+  status = napi_get_cb_info(env, info, &argc, nullptr, &js_this, nullptr);
+  if (status != napi_ok) {
+    //"Cannot get args from function");
+    return nullptr;
+  }
 
-  napi_value wireguard_constructor = WireguardConstructorReference::GetInstance()->GetClass(env);
-//  ASSERT_STATUS(napi_get_reference_value(env, wireguard_constructor_ref, &wireguard_constructor),
+  napi_value wireguard_constructor;
+  auto ref = ReferenceSingleton::GetInstance()->GetRefEnv(kWireguardConstructorName).first;
+  status = napi_get_reference_value(env, ref, &wireguard_constructor);
+  if (status != napi_ok) {
 //                "Cannot get reference of constructor");
+    return nullptr;
+  }
 
   bool is_instance = false;
   ASSERT_STATUS(napi_instanceof(env, js_this, wireguard_constructor, &is_instance), "Cannot check");
@@ -173,18 +184,28 @@ napi_value WireguardTunnelGetPrivateKey(napi_env env, napi_callback_info info) {
   return result;
 }
 
-napi_value WireguardTunnelReadWrite(napi_env env, napi_callback_info info, WG_OP_TYPE op_type) {
+napi_value WireguardTunnelWrapperReadWrite(napi_env env, napi_callback_info info, WG_OP_TYPE op_type) {
   napi_value result;
   napi_value js_this;
+
 
   size_t argc = 1;
   napi_value args[1];
   ASSERT_STATUS(napi_get_cb_info(env, info, &argc, args, &js_this, nullptr), "Cannot get args from function");
 
 //  napi_value wireguard_constructor = NULL;
-  napi_value wireguard_constructor = WireguardConstructorReference::GetInstance()->GetClass(env);
+//  napi_value wireguard_constructor = ReferenceSingleton::GetInstance()->GetClass(env);
 //  ASSERT_STATUS(napi_get_reference_value(env, wireguard_constructor_ref, &wireguard_constructor),
 //                "Cannot get reference of constructor");
+
+  napi_status status;
+  napi_value wireguard_constructor;
+  auto ref = ReferenceSingleton::GetInstance()->GetRefEnv(kWireguardConstructorName).first;
+  status = napi_get_reference_value(env, ref, &wireguard_constructor);
+  if (status != napi_ok) {
+//                "Cannot get reference of constructor");
+    return nullptr;
+  }
 
   bool is_instance = false;
   ASSERT_STATUS(napi_instanceof(env, js_this, wireguard_constructor, &is_instance), "Cannot check");
@@ -271,16 +292,16 @@ napi_value WireguardTunnelReadWrite(napi_env env, napi_callback_info info, WG_OP
   return result;
 }
 
-napi_value WireguardTunnelRead(napi_env env, napi_callback_info info) {
-  return WireguardTunnelReadWrite(env, info, WG_OP_TYPE::READ);
+napi_value WireguardTunnelWrapperRead(napi_env env, napi_callback_info info) {
+  return WireguardTunnelWrapperReadWrite(env, info, WG_OP_TYPE::READ);
 }
 
-napi_value WireguardTunnelWrite(napi_env env, napi_callback_info info) {
-  return WireguardTunnelReadWrite(env, info, WG_OP_TYPE::WRITE);
+napi_value WireguardTunnelWrapperWrite(napi_env env, napi_callback_info info) {
+  return WireguardTunnelWrapperReadWrite(env, info, WG_OP_TYPE::WRITE);
 
 }
 
-napi_value WireguardTunnelGetPublicKey(napi_env env, napi_callback_info info) {
+napi_value WireguardTunnelWrapperGetPublicKey(napi_env env, napi_callback_info info) {
   napi_value result;
   napi_value js_this;
 
@@ -289,9 +310,18 @@ napi_value WireguardTunnelGetPublicKey(napi_env env, napi_callback_info info) {
   ASSERT_STATUS(napi_get_cb_info(env, info, &argc, nullptr, &js_this, nullptr), "Cannot get args from function");
 
 //  napi_value wireguard_constructor = NULL;
-  napi_value wireguard_constructor = WireguardConstructorReference::GetInstance()->GetClass(env);
+//  napi_value wireguard_constructor = ReferenceSingleton::GetInstance()->GetClass(env);
 //  ASSERT_STATUS(napi_get_reference_value(env, wireguard_constructor_ref, &wireguard_constructor),
 //                "Cannot get reference of constructor");
+
+  napi_status status;
+  napi_value wireguard_constructor;
+  auto ref = ReferenceSingleton::GetInstance()->GetRefEnv(kWireguardConstructorName).first;
+  status = napi_get_reference_value(env, ref, &wireguard_constructor);
+  if (status != napi_ok) {
+//                "Cannot get reference of constructor");
+    return nullptr;
+  }
 
   bool is_instance = false;
   ASSERT_STATUS(napi_instanceof(env, js_this, wireguard_constructor, &is_instance), "Cannot check");
@@ -307,3 +337,33 @@ napi_value WireguardTunnelGetPublicKey(napi_env env, napi_callback_info info) {
   TO_STRING(env, wg->GetPublicKey(), NAPI_AUTO_LENGTH, &result);
   return result;
 }
+
+napi_status RegisterWireguardTunnel(napi_env env, napi_value exports) {
+  napi_status status = napi_ok;
+  napi_property_descriptor wireguard_tunnel_properties[] = {
+          {"getPrivateKey", nullptr, WireguardTunnelWrapperGetPrivateKey, nullptr, nullptr, nullptr, napi_default, nullptr},
+          {"getPublicKey",  nullptr, WireguardTunnelWrapperGetPublicKey,  nullptr, nullptr, nullptr, napi_default, nullptr},
+          {"write",         nullptr, WireguardTunnelWrapperWrite,         nullptr, nullptr, nullptr, napi_default, nullptr},
+          {"read",          nullptr, WireguardTunnelWrapperRead,          nullptr, nullptr, nullptr, napi_default, nullptr}
+  };
+
+  napi_value wireguard_tunnel_class;
+  status = napi_define_class(env, "WireguardTunnel", NAPI_AUTO_LENGTH, WireguardTunnelWrapperConstructor, nullptr, 4,
+                    wireguard_tunnel_properties,
+                    &wireguard_tunnel_class);
+  if(status != napi_ok){
+    return status;
+  }
+
+  ReferenceSingleton::GetInstance()->SetReference(kWireguardConstructorName, env, wireguard_tunnel_class);
+
+  status = napi_set_named_property(env, exports, "WireguardTunnel", wireguard_tunnel_class);
+  if(status != napi_ok){
+    // "Cannot create Wireguard class");
+    return status;
+  }
+
+  return status;
+}
+
+

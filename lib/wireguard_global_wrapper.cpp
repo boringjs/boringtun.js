@@ -1,4 +1,7 @@
 #include "wireguard_global_wrapper.h"
+#include "reference_singleton.h"
+
+static const std::string kLogFunctionName = "LogFunction";
 
 napi_value GenerateSecretKey(napi_env env, napi_callback_info info) {
   struct x25519_key key = x25519_secret_key();
@@ -101,3 +104,174 @@ napi_value CheckBase64EncodedX25519Key(napi_env env, napi_callback_info info) {
 
   return result;
 }
+
+napi_status RegisterGlobalFunctions(napi_env env, napi_value exports) {
+  napi_status status;
+  napi_value SetLoggingFunctionFn;
+
+  status = napi_create_function(env, "setLoggingFunction", NAPI_AUTO_LENGTH, SetLoggingFunction, nullptr,
+                                &SetLoggingFunctionFn);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Unable to wrap native function");
+    return status;
+  }
+
+  status = napi_set_named_property(env, exports, "setLoggingFunction", SetLoggingFunctionFn);
+
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failed to set exported generateSecretKeyBase64 function");
+    return status;
+  }
+
+  napi_value GenerateSecretKeyFn;
+  status = napi_create_function(env, "generateSecretKey", NAPI_AUTO_LENGTH, GenerateSecretKey, nullptr,
+                                &GenerateSecretKeyFn);// "Unable to wrap native function");
+
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "");
+    return status;
+  }
+
+  status = napi_set_named_property(env, exports, "generateSecretKey", GenerateSecretKeyFn);
+
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failed to set exported generateSecretKey function");
+    return status;
+  }
+
+  napi_value GenerateSecretKeyBase64Fn;
+  status = napi_create_function(env, "generateSecretKeyBase64", NAPI_AUTO_LENGTH, GenerateSecretKeyBase64, nullptr,
+                                &GenerateSecretKeyBase64Fn); //, "");
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Unable to wrap native function");
+    return status;
+  }
+
+  status = napi_set_named_property(env, exports, "generateSecretKeyBase64", GenerateSecretKeyBase64Fn);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failed to set exported generateSecretKeyBase64 function");
+    return status;
+  }
+
+  napi_value GetPublicKeyFromFn;
+  status = napi_create_function(env, "getPublicKeyFrom", NAPI_AUTO_LENGTH, GetPublicKeyFrom, nullptr,
+                                &GetPublicKeyFromFn); // , "");
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Unable to wrap native function");
+    return status;
+  }
+
+  napi_value CheckBase64EncodedX25519KeyFn;
+  status = napi_create_function(env, "checkBase64EncodedX25519Key", NAPI_AUTO_LENGTH, CheckBase64EncodedX25519Key,
+                                nullptr,
+                                &CheckBase64EncodedX25519KeyFn);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Unable to wrap native function");
+    return status;
+  }
+
+  status = napi_set_named_property(env, exports, "getPublicKeyFrom", GetPublicKeyFromFn);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failed to set exported generateSecretKeyBase64 function");
+    return status;
+  }
+
+  status = napi_set_named_property(env, exports, "checkBase64EncodedX25519Key", CheckBase64EncodedX25519KeyFn);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failed to set exported generateSecretKeyBase64 function");
+    return status;
+  }
+
+  return status; // todo return something
+}
+
+napi_value SetLoggingFunction(napi_env env, napi_callback_info info) {
+  size_t argc;
+  argc = 1;
+  napi_value args[1];
+  napi_value result;
+  napi_status status;
+
+  status = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (status != napi_ok) {
+//  , "Failed to parse arguments");
+    return nullptr;
+  }
+
+  if (argc != 1) {
+    napi_throw_type_error(env, nullptr, "Function expects only one arg.");
+    return nullptr;
+  }
+
+  napi_valuetype val_type_key;
+  status = napi_typeof(env, args[0], &val_type_key);
+  if (status != napi_ok) {
+//    , "Failing getting args type")
+    return nullptr;
+  }
+
+  if (val_type_key != napi_function) {
+    napi_throw_type_error(env, nullptr, "Input value is not function");
+    return nullptr;
+  }
+
+  ReferenceSingleton::GetInstance()->SetReference(kLogFunctionName, env, args[0]);
+
+  bool result_bool = set_logging_function([](const char *msg) {
+    napi_status callback_status;
+
+    if (ReferenceSingleton::GetInstance()->IsRefExists(kLogFunctionName)) {
+      return;
+    }
+
+    napi_value logger_callback;
+    auto [logger_callback_ref, ref_env] = ReferenceSingleton::GetInstance()->GetRefEnv(kLogFunctionName);
+
+    callback_status = napi_get_reference_value(ref_env, logger_callback_ref, &logger_callback);
+    if (callback_status != napi_ok) {
+      return;
+    }
+
+    napi_value string_arg;
+    callback_status = napi_create_string_utf8(ref_env, msg, NAPI_AUTO_LENGTH, &string_arg);
+    if (callback_status != napi_ok) {
+      return;
+    }
+
+    napi_value global;
+    callback_status = napi_get_global(ref_env, &global);
+    if (callback_status != napi_ok) {
+      return;
+    }
+
+    napi_call_function(ref_env, global, logger_callback, 1, &string_arg, nullptr);
+  });
+
+  status = napi_get_boolean(env, result_bool, &result);
+
+  if (status != napi_ok) {
+//    todo "Cannot create bool result.";
+    return nullptr;
+  }
+
+  return result;
+}
+
+void CreateStringConstants(napi_env &env, napi_value &exports, const char *str) {
+  napi_value type;
+  ASSERT_SILENT(napi_create_string_utf8(env, str, NAPI_AUTO_LENGTH, &type));
+  ASSERT_SILENT(napi_set_named_property(env, exports, str, type));
+}
+
+napi_status RegisterGlobalConstants(napi_env env, napi_value exports) {
+  napi_status status = napi_ok;
+
+  CreateStringConstants(env, exports, "WIREGUARD_DONE");
+  CreateStringConstants(env, exports, "WRITE_TO_NETWORK");
+  CreateStringConstants(env, exports, "WIREGUARD_ERROR");
+  CreateStringConstants(env, exports, "WRITE_TO_TUNNEL_IPV4");
+  CreateStringConstants(env, exports, "WRITE_TO_TUNNEL_IPV6");
+
+  return status;
+}
+
