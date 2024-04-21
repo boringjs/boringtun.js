@@ -19,9 +19,12 @@ if (WIN32)
 endif ()
 
 if ($ENV{CLION_IDE})
-    exec_program(npx ${CMAKE_CURRENT_SOURCE_DIR}
-            ARGS cmake-js print-cmakejs-include -l error
+    execute_process(
+            COMMAND npx cmake-js print-cmakejs-include -l error
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             OUTPUT_VARIABLE CMAKE_JS_INC
+            RESULT_VARIABLE result
+            ERROR_QUIET
     )
 endif ()
 
