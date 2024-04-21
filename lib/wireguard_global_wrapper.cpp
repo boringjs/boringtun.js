@@ -1,24 +1,39 @@
 #include "wireguard_global_wrapper.h"
 #include "reference_singleton.h"
 
+extern "C" {
+#include "../boringtun/boringtun/src/wireguard_ffi.h"
+}
+
 static const std::string kLogFunctionName = "LogFunction";
 
 napi_value GenerateSecretKey(napi_env env, napi_callback_info info) {
   struct x25519_key key = x25519_secret_key();
   napi_value result;
+  napi_status status;
   void *bufferData;
-  ASSERT_STATUS(napi_create_buffer_copy(env, sizeof(key.key), key.key, &bufferData, &result), "Buffer error");
+
+  status = napi_create_buffer_copy(env, sizeof(key.key), key.key, &bufferData, &result);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Buffer error");
+    return nullptr;
+  }
+
   return result;
 }
 
 napi_value GenerateSecretKeyBase64(napi_env env, napi_callback_info info) {
   struct x25519_key key = x25519_secret_key();
+  napi_status status;
 
   const char *key64 = x25519_key_to_base64(key);
 
   napi_value result;
-//  ASSERT_STATUS(napi_create_string_utf8(env, key64, strlen(key64), &result), "Failed to create result string");
-  TO_STRING(env, key64, strlen(key64), &result);
+  status = napi_create_string_utf8(env, key64, strlen(key64), &result);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failed to create result string");
+    return nullptr;
+  }
 
   x25519_key_to_str_free(key64);
 
@@ -30,8 +45,13 @@ napi_value GetPublicKeyFrom(napi_env env, napi_callback_info info) {
   napi_value args[1];
   napi_value result;
   x25519_key private_key;
+  napi_status status;
 
-  ASSERT_STATUS(napi_get_cb_info(env, info, &argc, args, nullptr, nullptr), "Failed to parse arguments");
+  status = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failed to parse arguments");
+    return nullptr;
+  }
 
   if (argc != 1) {
     napi_throw_type_error(env, nullptr, "Function expects one buffer argument.");
@@ -39,16 +59,27 @@ napi_value GetPublicKeyFrom(napi_env env, napi_callback_info info) {
   }
 
   napi_valuetype val_type_key_private;
-  ASSERT_STATUS(napi_typeof(env, args[0], &val_type_key_private), "Failing getting args type")
+  status = napi_typeof(env, args[0], &val_type_key_private);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failing getting args type");
+    return nullptr;
+  }
 
   bool private_key_is_buffer = false;
-  ASSERT_STATUS(napi_is_buffer(env, args[0], &private_key_is_buffer), "Error checking is buffer");
+  status = napi_is_buffer(env, args[0], &private_key_is_buffer);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Error checking is buffer");
+    return nullptr;
+  }
 
   if (private_key_is_buffer) {
     size_t buffer_length;
     void *buffer_data;
-    ASSERT_STATUS(napi_get_buffer_info(env, args[0], &buffer_data, &buffer_length),
-                  "Cannot get buffer from private_key");
+    status = napi_get_buffer_info(env, args[0], &buffer_data, &buffer_length);
+    if (status != napi_ok) {
+      napi_throw_error(env, nullptr, "Cannot get buffer from private_key");
+      return nullptr;
+    }
 
     if (buffer_length != 32) { // For example, checking for a specific length
       napi_throw_type_error(env, nullptr, "Buffer argument must have a length of 32.");
@@ -65,7 +96,11 @@ napi_value GetPublicKeyFrom(napi_env env, napi_callback_info info) {
 
   const char *key64 = x25519_key_to_base64(public_key);
 
-  TO_STRING(env, key64, strlen(key64), &result);
+  status = napi_create_string_utf8(env, key64, strlen(key64), &result);
+  if(status != napi_ok){
+    napi_throw_error(env, nullptr, "Cannot convert to v8 string");
+    return nullptr;
+  }
 
   x25519_key_to_str_free(key64);
 
@@ -76,8 +111,13 @@ napi_value CheckBase64EncodedX25519Key(napi_env env, napi_callback_info info) {
   size_t argc = 1;
   napi_value args[1];
   napi_value result;
+  napi_status status;
 
-  ASSERT_STATUS(napi_get_cb_info(env, info, &argc, args, nullptr, nullptr), "Failed to parse arguments");
+  status = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failed to parse arguments");
+    return nullptr;
+  }
 
   if (argc != 1) {
     napi_throw_type_error(env, nullptr, "Function expects only one arg.");
@@ -85,7 +125,11 @@ napi_value CheckBase64EncodedX25519Key(napi_env env, napi_callback_info info) {
   }
 
   napi_valuetype val_type_key;
-  ASSERT_STATUS(napi_typeof(env, args[0], &val_type_key), "Failing getting args type")
+  status = napi_typeof(env, args[0], &val_type_key);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failing getting args type");
+    return nullptr;
+  }
 
   if (val_type_key != napi_string) {
     napi_throw_type_error(env, nullptr, "Input value is not string");
@@ -93,14 +137,27 @@ napi_value CheckBase64EncodedX25519Key(napi_env env, napi_callback_info info) {
   }
 
   size_t str_length;
-  ASSERT_STATUS(napi_get_value_string_utf8(env, args[0], nullptr, 0, &str_length), "Cannot get string length")
+  status = napi_get_value_string_utf8(env, args[0], nullptr, 0, &str_length);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get string length");
+    return nullptr;
+  }
+
   char *str = new char[str_length + 1];
-  ASSERT_STATUS(napi_get_value_string_utf8(env, args[0], str, str_length + 1, nullptr), "Cannot get string")
+  status = napi_get_value_string_utf8(env, args[0], str, str_length + 1, nullptr);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get string");
+    return nullptr;
+  }
 
   bool result_raw = !!check_base64_encoded_x25519_key(str);
 
   delete[] str;
-  ASSERT_STATUS(napi_get_boolean(env, result_raw, &result), "Cannot create bool result.")
+  status = napi_get_boolean(env, result_raw, &result);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot create bool result.");
+    return nullptr;
+  }
 
   return result;
 }
@@ -125,15 +182,13 @@ napi_status RegisterGlobalFunctions(napi_env env, napi_value exports) {
 
   napi_value GenerateSecretKeyFn;
   status = napi_create_function(env, "generateSecretKey", NAPI_AUTO_LENGTH, GenerateSecretKey, nullptr,
-                                &GenerateSecretKeyFn);// "Unable to wrap native function");
-
+                                &GenerateSecretKeyFn);
   if (status != napi_ok) {
-    napi_throw_error(env, nullptr, "");
+    napi_throw_error(env, nullptr, "Unable to wrap native function");
     return status;
   }
 
   status = napi_set_named_property(env, exports, "generateSecretKey", GenerateSecretKeyFn);
-
   if (status != napi_ok) {
     napi_throw_error(env, nullptr, "Failed to set exported generateSecretKey function");
     return status;
@@ -141,7 +196,7 @@ napi_status RegisterGlobalFunctions(napi_env env, napi_value exports) {
 
   napi_value GenerateSecretKeyBase64Fn;
   status = napi_create_function(env, "generateSecretKeyBase64", NAPI_AUTO_LENGTH, GenerateSecretKeyBase64, nullptr,
-                                &GenerateSecretKeyBase64Fn); //, "");
+                                &GenerateSecretKeyBase64Fn);
   if (status != napi_ok) {
     napi_throw_error(env, nullptr, "Unable to wrap native function");
     return status;
@@ -194,7 +249,7 @@ napi_value SetLoggingFunction(napi_env env, napi_callback_info info) {
 
   status = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
   if (status != napi_ok) {
-//  , "Failed to parse arguments");
+    napi_throw_type_error(env, nullptr, "Failed to parse arguments");
     return nullptr;
   }
 
@@ -206,7 +261,7 @@ napi_value SetLoggingFunction(napi_env env, napi_callback_info info) {
   napi_valuetype val_type_key;
   status = napi_typeof(env, args[0], &val_type_key);
   if (status != napi_ok) {
-//    , "Failing getting args type")
+    napi_throw_type_error(env, nullptr, "Failing getting args type");
     return nullptr;
   }
 
@@ -250,7 +305,7 @@ napi_value SetLoggingFunction(napi_env env, napi_callback_info info) {
   status = napi_get_boolean(env, result_bool, &result);
 
   if (status != napi_ok) {
-//    todo "Cannot create bool result.";
+    napi_throw_type_error(env, nullptr, "Cannot create bool result.");
     return nullptr;
   }
 
@@ -259,8 +314,18 @@ napi_value SetLoggingFunction(napi_env env, napi_callback_info info) {
 
 void CreateStringConstants(napi_env &env, napi_value &exports, const char *str) {
   napi_value type;
-  ASSERT_SILENT(napi_create_string_utf8(env, str, NAPI_AUTO_LENGTH, &type));
-  ASSERT_SILENT(napi_set_named_property(env, exports, str, type));
+  napi_status status;
+  status = napi_create_string_utf8(env, str, NAPI_AUTO_LENGTH, &type);
+  if(status != napi_ok){
+    napi_throw_type_error(env, nullptr, "Cannot create string");
+    return;
+  }
+
+  status = napi_set_named_property(env, exports, str, type);
+  if(status != napi_ok){
+    napi_throw_type_error(env, nullptr, "Cannot set property");
+    return;
+  }
 }
 
 napi_status RegisterGlobalConstants(napi_env env, napi_value exports) {

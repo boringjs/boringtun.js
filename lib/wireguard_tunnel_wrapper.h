@@ -4,8 +4,12 @@
 #include <iostream>
 #include <cstring>
 #include "wireguard_tunnel.h"
-#include "utils.h"
 #include "reference_singleton.h"
+
+enum WG_OP_TYPE {
+  READ = 1,
+  WRITE = 2,
+};
 
 napi_value WireguardTunnelWrapperConstructor(napi_env env, napi_callback_info info);
 

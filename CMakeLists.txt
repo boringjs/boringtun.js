@@ -36,7 +36,6 @@ add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES}
         lib/wireguard_tunnel.h
         lib/wireguard_tunnel_wrapper.cpp
         lib/wireguard_tunnel_wrapper.h
-        lib/utils.h
         lib/reference_singleton.cpp
         lib/reference_singleton.h
         lib/wireguard_global_wrapper.cpp

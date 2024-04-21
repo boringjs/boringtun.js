@@ -3,8 +3,6 @@
 #include <map>
 #include <utility>
 #include <node_api.h>
-#include "utils.h"
-
 
 class ReferenceSingleton {
 public:

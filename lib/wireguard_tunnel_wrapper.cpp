@@ -178,10 +178,10 @@ napi_value WireguardTunnelWrapperConstructor(napi_env env, napi_callback_info in
     return nullptr;
   }
 
-//  if (index < 1) {
-//    napi_throw_type_error(env, nullptr, "Invalid index input");
-//    return nullptr;
-//  }
+  if (index < 1) { // todo: check
+    napi_throw_type_error(env, nullptr, "Invalid index input");
+    return nullptr;
+  }
 
   auto *wg = new WireguardTunnel(
           private_key,
@@ -257,28 +257,30 @@ napi_value WireguardTunnelWrapperGetPrivateKey(napi_env env, napi_callback_info 
 napi_value WireguardTunnelWrapperReadWrite(napi_env env, napi_callback_info info, WG_OP_TYPE op_type) {
   napi_value result;
   napi_value js_this;
-
+  napi_status status;
 
   size_t argc = 1;
   napi_value args[1];
-  ASSERT_STATUS(napi_get_cb_info(env, info, &argc, args, &js_this, nullptr), "Cannot get args from function");
+  status = napi_get_cb_info(env, info, &argc, args, &js_this, nullptr);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get args from function");
+    return nullptr;
+  }
 
-//  napi_value wireguard_constructor = NULL;
-//  napi_value wireguard_constructor = ReferenceSingleton::GetInstance()->GetClass(env);
-//  ASSERT_STATUS(napi_get_reference_value(env, wireguard_constructor_ref, &wireguard_constructor),
-//                "Cannot get reference of constructor");
-
-  napi_status status;
   napi_value wireguard_constructor;
   auto ref = ReferenceSingleton::GetInstance()->GetRefEnv(kWireguardConstructorName).first;
   status = napi_get_reference_value(env, ref, &wireguard_constructor);
   if (status != napi_ok) {
-//                "Cannot get reference of constructor");
+    napi_throw_error(env, nullptr, "Cannot get reference of constructor");
     return nullptr;
   }
 
   bool is_instance = false;
-  ASSERT_STATUS(napi_instanceof(env, js_this, wireguard_constructor, &is_instance), "Cannot check");
+  status = napi_instanceof(env, js_this, wireguard_constructor, &is_instance);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot check");
+    return nullptr;
+  }
 
   if (!is_instance) {
     napi_throw_type_error(env, nullptr, "Invalid this");
@@ -291,10 +293,18 @@ napi_value WireguardTunnelWrapperReadWrite(napi_env env, napi_callback_info info
   }
 
   napi_valuetype val_type;
-  ASSERT_STATUS(napi_typeof(env, args[0], &val_type), "Failing getting args type")
+  status = napi_typeof(env, args[0], &val_type);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failing getting args type");
+    return nullptr;
+  }
 
   bool is_buffer = false;
-  ASSERT_STATUS(napi_is_buffer(env, args[0], &is_buffer), "Error checking is buffer");
+  status = napi_is_buffer(env, args[0], &is_buffer);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Error checking is buffer");
+    return nullptr;
+  }
 
   if (!is_buffer) {
     napi_throw_type_error(env, nullptr, "Invalid type");
@@ -303,11 +313,19 @@ napi_value WireguardTunnelWrapperReadWrite(napi_env env, napi_callback_info info
 
   size_t buffer_length;
   void *buffer_data;
-  ASSERT_STATUS(napi_get_buffer_info(env, args[0], &buffer_data, &buffer_length),
-                "Cannot get buffer from private_key");
+  status = napi_get_buffer_info(env, args[0], &buffer_data, &buffer_length);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get buffer from private_key");
+    return nullptr;
+  }
 
   WireguardTunnel *wg = nullptr;
-  ASSERT_STATUS(napi_unwrap(env, js_this, reinterpret_cast<void **>(&wg)), "Cannot get instance of native wireguard");
+  status = napi_unwrap(env, js_this, reinterpret_cast<void **>(&wg));
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get instance of native wireguard");
+    return nullptr;
+  }
+
   auto *src = static_cast<uint8_t *>(buffer_data);
   auto src_size = static_cast<uint32_t>(buffer_length);
   uint32_t dst_size = 2000;
@@ -347,14 +365,31 @@ napi_value WireguardTunnelWrapperReadWrite(napi_env env, napi_callback_info info
   };
 
   napi_value type;
-  ASSERT_STATUS(napi_create_string_utf8(env, result_str.c_str(), NAPI_AUTO_LENGTH, &type), "Cannot set value");
-  ASSERT_STATUS(napi_set_named_property(env, result, "type", type), "Cannot set prop");
+  status = napi_create_string_utf8(env, result_str.c_str(), NAPI_AUTO_LENGTH, &type);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot set value");
+    return nullptr;
+  }
+
+  status = napi_set_named_property(env, result, "type", type);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot set prop");
+    return nullptr;
+  }
 
   if (write_buffer) {
     napi_value buffer;
-    ASSERT_STATUS(napi_create_buffer_copy(env, read_result.size, reinterpret_cast<void ** >(dst), nullptr, &buffer),
-                  "Cannot create buffer");
-    napi_set_named_property(env, result, "data", buffer);
+    status = napi_create_buffer_copy(env, read_result.size, reinterpret_cast<void ** >(dst), nullptr, &buffer);
+    if (status != napi_ok) {
+      napi_throw_error(env, nullptr, "Cannot create buffer");
+      return nullptr;
+    }
+
+    status = napi_set_named_property(env, result, "data", buffer);
+    if (status != napi_ok) {
+      napi_throw_error(env, nullptr, "Cannot set property");
+      return nullptr;
+    }
   }
 
   delete[] dst;
@@ -374,27 +409,29 @@ napi_value WireguardTunnelWrapperWrite(napi_env env, napi_callback_info info) {
 napi_value WireguardTunnelWrapperGetPublicKey(napi_env env, napi_callback_info info) {
   napi_value result;
   napi_value js_this;
+  napi_status status;
 
   size_t argc = 0;
-//  napi_value args[0];
-  ASSERT_STATUS(napi_get_cb_info(env, info, &argc, nullptr, &js_this, nullptr), "Cannot get args from function");
+  status = napi_get_cb_info(env, info, &argc, nullptr, &js_this, nullptr);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get args from function");
+    return nullptr;
+  }
 
-//  napi_value wireguard_constructor = NULL;
-//  napi_value wireguard_constructor = ReferenceSingleton::GetInstance()->GetClass(env);
-//  ASSERT_STATUS(napi_get_reference_value(env, wireguard_constructor_ref, &wireguard_constructor),
-//                "Cannot get reference of constructor");
-
-  napi_status status;
   napi_value wireguard_constructor;
   auto ref = ReferenceSingleton::GetInstance()->GetRefEnv(kWireguardConstructorName).first;
   status = napi_get_reference_value(env, ref, &wireguard_constructor);
   if (status != napi_ok) {
-//                "Cannot get reference of constructor");
+    napi_throw_error(env, nullptr, "Cannot get reference of constructor");
     return nullptr;
   }
 
   bool is_instance = false;
-  ASSERT_STATUS(napi_instanceof(env, js_this, wireguard_constructor, &is_instance), "Cannot check");
+  status = napi_instanceof(env, js_this, wireguard_constructor, &is_instance);// "");
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot check");
+    return nullptr;
+  }
 
   if (!is_instance) {
     napi_throw_type_error(env, nullptr, "Invalid this");
@@ -402,9 +439,18 @@ napi_value WireguardTunnelWrapperGetPublicKey(napi_env env, napi_callback_info i
   }
 
   WireguardTunnel *wg = nullptr;
-  ASSERT_STATUS(napi_unwrap(env, js_this, reinterpret_cast<void **>(&wg)), "Cannot get instance of native wireguard");
+  status = napi_unwrap(env, js_this, reinterpret_cast<void **>(&wg)); // "Cannot get instance of native wireguard");
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "");
+    return nullptr;
+  }
 
-  TO_STRING(env, wg->GetPublicKey(), NAPI_AUTO_LENGTH, &result);
+  status = napi_create_string_utf8(env, wg->GetPrivateKey(), NAPI_AUTO_LENGTH, &result);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "");
+    return nullptr;
+  }
+
   return result;
 }
 
@@ -429,7 +475,7 @@ napi_status RegisterWireguardTunnel(napi_env env, napi_value exports) {
 
   status = napi_set_named_property(env, exports, "WireguardTunnel", wireguard_tunnel_class);
   if (status != napi_ok) {
-    // "Cannot create Wireguard class");
+    napi_throw_error(env, nullptr, "Cannot create Wireguard class");
     return status;
   }
 
