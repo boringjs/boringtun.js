@@ -6,8 +6,13 @@ napi_value WireguardTunnelWrapperConstructor(napi_env env, napi_callback_info in
   napi_value js_this;
   size_t argc = 5;
   napi_value args[5];
+  napi_status status;
 
-  ASSERT_STATUS(napi_get_cb_info(env, info, &argc, args, &js_this, nullptr), "Cannot get args for constructor");
+  status = napi_get_cb_info(env, info, &argc, args, &js_this, nullptr);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get args for constructor");
+    return nullptr;
+  }
 
   if (argc != 5) {
     napi_throw_type_error(env, nullptr, "Function expects 5 arg");
@@ -16,7 +21,12 @@ napi_value WireguardTunnelWrapperConstructor(napi_env env, napi_callback_info in
 
   // GET PRIVATE KEY
   napi_valuetype arg_type;
-  ASSERT_STATUS(napi_typeof(env, args[0], &arg_type), "Failing getting args type")
+  status = napi_typeof(env, args[0], &arg_type);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failing getting args type");
+    return nullptr;
+  }
+
 
   if (arg_type != napi_string) {
     napi_throw_type_error(env, nullptr, "Private key must be a string");
@@ -24,10 +34,18 @@ napi_value WireguardTunnelWrapperConstructor(napi_env env, napi_callback_info in
   }
 
   size_t private_key_length;
-  ASSERT_STATUS(napi_get_value_string_utf8(env, args[0], nullptr, 0, &private_key_length), "Cannot get string")
+  status = napi_get_value_string_utf8(env, args[0], nullptr, 0, &private_key_length);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get string");
+    return nullptr;
+  }
+
   char *private_key_ptr = new char[private_key_length + 1];
-  ASSERT_STATUS(napi_get_value_string_utf8(env, args[0], private_key_ptr, private_key_length + 1, nullptr),
-                "Cannot get string")
+  status = napi_get_value_string_utf8(env, args[0], private_key_ptr, private_key_length + 1, nullptr);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get string");
+    return nullptr;
+  }
 
   std::string private_key{private_key_ptr, private_key_length};
 
@@ -42,7 +60,11 @@ napi_value WireguardTunnelWrapperConstructor(napi_env env, napi_callback_info in
   }
 
   // GET PUBLIC KEY
-  ASSERT_STATUS(napi_typeof(env, args[1], &arg_type), "Failing getting args type")
+  status = napi_typeof(env, args[1], &arg_type);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failing getting args type");
+    return nullptr;
+  }
 
   if (arg_type != napi_string) {
     napi_throw_type_error(env, nullptr, "Public key must be a string");
@@ -50,10 +72,18 @@ napi_value WireguardTunnelWrapperConstructor(napi_env env, napi_callback_info in
   }
 
   size_t public_key_length;
-  ASSERT_STATUS(napi_get_value_string_utf8(env, args[1], nullptr, 0, &public_key_length), "Cannot get string")
+  status = napi_get_value_string_utf8(env, args[1], nullptr, 0, &public_key_length);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get string");
+    return nullptr;
+  }
+
   char *public_key_ptr = new char[public_key_length + 1];
-  ASSERT_STATUS(napi_get_value_string_utf8(env, args[1], public_key_ptr, public_key_length + 1, nullptr),
-                "Cannot get string")
+  status = napi_get_value_string_utf8(env, args[1], public_key_ptr, public_key_length + 1, nullptr);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get string");
+    return nullptr;
+  }
 
   std::string public_key{public_key_ptr, public_key_length};
 
@@ -66,9 +96,12 @@ napi_value WireguardTunnelWrapperConstructor(napi_env env, napi_callback_info in
     return nullptr;
   }
 
-
   // GET PRESHARED KEY
-  ASSERT_STATUS(napi_typeof(env, args[2], &arg_type), "Failing getting args type")
+  status = napi_typeof(env, args[2], &arg_type);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failing getting args type");
+    return nullptr;
+  }
 
   if (arg_type != napi_string) {
     napi_throw_type_error(env, nullptr, "Public key must be a string");
@@ -76,10 +109,18 @@ napi_value WireguardTunnelWrapperConstructor(napi_env env, napi_callback_info in
   }
 
   size_t preshared_key_length;
-  ASSERT_STATUS(napi_get_value_string_utf8(env, args[2], nullptr, 0, &preshared_key_length), "Cannot get string")
+  status = napi_get_value_string_utf8(env, args[2], nullptr, 0, &preshared_key_length);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get string");
+    return nullptr;
+  }
+
   char *preshared_key_ptr = new char[preshared_key_length + 1];
-  ASSERT_STATUS(napi_get_value_string_utf8(env, args[2], preshared_key_ptr, preshared_key_length + 1, nullptr),
-                "Cannot get string")
+  status = napi_get_value_string_utf8(env, args[2], preshared_key_ptr, preshared_key_length + 1, nullptr);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get string");
+    return nullptr;
+  }
 
   std::string preshared_key{preshared_key_ptr, preshared_key_ptr};
 
@@ -95,7 +136,11 @@ napi_value WireguardTunnelWrapperConstructor(napi_env env, napi_callback_info in
   }
 
   // GET KEEP_ALIVE
-  ASSERT_STATUS(napi_typeof(env, args[3], &arg_type), "Failing getting args type")
+  status = napi_typeof(env, args[3], &arg_type);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failing getting args type");
+    return nullptr;
+  }
 
   if (arg_type != napi_number) {
     napi_throw_type_error(env, nullptr, "Public key must be a number");
@@ -103,7 +148,11 @@ napi_value WireguardTunnelWrapperConstructor(napi_env env, napi_callback_info in
   }
 
   int32_t keep_alive;
-  ASSERT_STATUS(napi_get_value_int32(env, args[3], &keep_alive), "Cannot get int value")
+  status = napi_get_value_int32(env, args[3], &keep_alive);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get int value");
+    return nullptr;
+  }
 
   if (keep_alive < 1) {
     napi_throw_type_error(env, nullptr, "Invalid public key input");
@@ -111,7 +160,11 @@ napi_value WireguardTunnelWrapperConstructor(napi_env env, napi_callback_info in
   }
 
   // GET INDEX
-  ASSERT_STATUS(napi_typeof(env, args[4], &arg_type), "Failing getting args type")
+  status = napi_typeof(env, args[4], &arg_type);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failing getting args type");
+    return nullptr;
+  }
 
   if (arg_type != napi_number) {
     napi_throw_type_error(env, nullptr, "Index must be a number");
@@ -119,7 +172,11 @@ napi_value WireguardTunnelWrapperConstructor(napi_env env, napi_callback_info in
   }
 
   int32_t index;
-  ASSERT_STATUS(napi_get_value_int32(env, args[4], &index), "Cannot get int value")
+  status = napi_get_value_int32(env, args[4], &index);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get int value");
+    return nullptr;
+  }
 
 //  if (index < 1) {
 //    napi_throw_type_error(env, nullptr, "Invalid index input");
@@ -154,10 +211,9 @@ napi_value WireguardTunnelWrapperGetPrivateKey(napi_env env, napi_callback_info 
   napi_status status;
 
   size_t argc = 0;
-//  napi_value args[0];
   status = napi_get_cb_info(env, info, &argc, nullptr, &js_this, nullptr);
   if (status != napi_ok) {
-    //"Cannot get args from function");
+    napi_throw_error(env, nullptr, "Cannot get args from function");
     return nullptr;
   }
 
@@ -165,12 +221,16 @@ napi_value WireguardTunnelWrapperGetPrivateKey(napi_env env, napi_callback_info 
   auto ref = ReferenceSingleton::GetInstance()->GetRefEnv(kWireguardConstructorName).first;
   status = napi_get_reference_value(env, ref, &wireguard_constructor);
   if (status != napi_ok) {
-//                "Cannot get reference of constructor");
+    napi_throw_error(env, nullptr, "Cannot get reference of constructor");
     return nullptr;
   }
 
   bool is_instance = false;
-  ASSERT_STATUS(napi_instanceof(env, js_this, wireguard_constructor, &is_instance), "Cannot check");
+  status = napi_instanceof(env, js_this, wireguard_constructor, &is_instance);
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot check");
+    return nullptr;
+  }
 
   if (!is_instance) {
     napi_throw_type_error(env, nullptr, "Invalid this");
@@ -178,9 +238,19 @@ napi_value WireguardTunnelWrapperGetPrivateKey(napi_env env, napi_callback_info 
   }
 
   WireguardTunnel *wg = nullptr;
-  ASSERT_STATUS(napi_unwrap(env, js_this, reinterpret_cast<void **>(&wg)), "Cannot get instance of native wireguard");
+  status = napi_unwrap(env, js_this, reinterpret_cast<void **>(&wg));
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Cannot get instance of native wireguard");
+    return nullptr;
+  }
 
-  TO_STRING(env, wg->GetPrivateKey(), NAPI_AUTO_LENGTH, &result);
+  status = napi_create_string_utf8(env, wg->GetPrivateKey(), NAPI_AUTO_LENGTH, &result);
+
+  if (status != napi_ok) {
+    napi_throw_error(env, nullptr, "Failed to convert to result string");
+    return nullptr;
+  }
+
   return result;
 }
 
@@ -349,16 +419,16 @@ napi_status RegisterWireguardTunnel(napi_env env, napi_value exports) {
 
   napi_value wireguard_tunnel_class;
   status = napi_define_class(env, "WireguardTunnel", NAPI_AUTO_LENGTH, WireguardTunnelWrapperConstructor, nullptr, 4,
-                    wireguard_tunnel_properties,
-                    &wireguard_tunnel_class);
-  if(status != napi_ok){
+                             wireguard_tunnel_properties,
+                             &wireguard_tunnel_class);
+  if (status != napi_ok) {
     return status;
   }
 
   ReferenceSingleton::GetInstance()->SetReference(kWireguardConstructorName, env, wireguard_tunnel_class);
 
   status = napi_set_named_property(env, exports, "WireguardTunnel", wireguard_tunnel_class);
-  if(status != napi_ok){
+  if (status != napi_ok) {
     // "Cannot create Wireguard class");
     return status;
   }
