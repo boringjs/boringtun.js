@@ -70,8 +70,6 @@ describe('C++ bindings', () => {
     const index1 = 500
     const index2 = 500
 
-    console.log(WireguardTunnel)
-
     const peer1 = new WireguardTunnel(privateKey1, publicKey2, preSharedKey, keepAlive, index1)
     const peer2 = new WireguardTunnel(privateKey2, publicKey1, preSharedKey, keepAlive, index2)
 
