@@ -1,5 +1,14 @@
-const {generateKeyPair, checkValidKey, getPublicKeyFrom} = require('../index.js')
-const {WireguardTunnel, generatePrivateKey} = require("../src/tunnel");
+const {
+  WireguardTunnel,
+  setLoggingFunction,
+  generateKeyPair,
+  checkValidKey,
+  getPublicKeyFrom,
+  generatePrivateKey,
+  WRITE_TO_NETWORK,
+  WIREGUARD_DONE
+} = require('../index.js')
+
 
 describe('C++ bindings', () => {
   test('Generate key pair', () => {
@@ -24,14 +33,14 @@ describe('C++ bindings', () => {
     expect(getPublicKeyFrom(privateKeyBuf)).toBe(publicKey)
   })
 
-  test.skip('Wireguard tunnel pair', () => {
-    const {privateKey: privateKey1, publicKey: publicKey1} = generateKeyPair()
-    const {privateKey: privateKey2, publicKey: publicKey2} = generateKeyPair()
-    const keep_alive = 25
-    const preSharedKey = ''
-    const index = 10
+  test('Create tunnel', () => {
+    const privateKey = generatePrivateKey()
+    const peerPublicKey = generatePrivateKey()
 
-    const peer1 = new WireguardTunnel(privateKey1, publicKey2, preSharedKey, index)
-    const peer2 = new WireguardTunnel(privateKey2, publicKey1, preSharedKey, index)
+    const peer = new WireguardTunnel(privateKey, peerPublicKey, '', 25, 1)
+
+    expect(peer.getPrivateKey()).toBe(privateKey)
+
+    expect(peer.getPublicKey()).toBe(peerPublicKey)
   })
 })

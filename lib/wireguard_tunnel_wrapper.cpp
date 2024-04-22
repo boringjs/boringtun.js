@@ -467,7 +467,7 @@ napi_value WireguardTunnelWrapperGetPublicKey(napi_env env, napi_callback_info i
     return nullptr;
   }
 
-  status = napi_create_string_utf8(env, wg->GetPrivateKey(), NAPI_AUTO_LENGTH, &result);
+  status = napi_create_string_utf8(env, wg->GetPublicKey(), NAPI_AUTO_LENGTH, &result);
   if (status != napi_ok) {
     napi_throw_error(env, nullptr, "Cannot create v8 string");
     return nullptr;
