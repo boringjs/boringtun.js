@@ -1,7 +1,6 @@
 #pragma once
 
 #include <node_api.h>
-#include <iostream>
 #include <cstring>
 
 napi_value SetLoggingFunction(napi_env env, napi_callback_info info);

@@ -9,9 +9,9 @@ WireguardTunnel::WireguardTunnel(std::string private_key, std::string public_key
           keep_alive_(keep_alive),
           index_(index),
           tunnel_(new_tunnel(
-                  private_key_.c_str(),
-                  public_key_.c_str(),
-                  preshared_key_.size() > 0 ? preshared_key_.c_str() : nullptr,
+                  private_key.c_str(),
+                  public_key.c_str(),
+                  preshared_key.size() > 0 ? preshared_key_.c_str() : nullptr,
                   keep_alive_,
                   index_)) {
 }

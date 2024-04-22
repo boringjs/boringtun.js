@@ -97,7 +97,7 @@ napi_value GetPublicKeyFrom(napi_env env, napi_callback_info info) {
   const char *key64 = x25519_key_to_base64(public_key);
 
   status = napi_create_string_utf8(env, key64, strlen(key64), &result);
-  if(status != napi_ok){
+  if (status != napi_ok) {
     napi_throw_error(env, nullptr, "Cannot convert to v8 string");
     return nullptr;
   }
@@ -275,7 +275,7 @@ napi_value SetLoggingFunction(napi_env env, napi_callback_info info) {
   bool result_bool = set_logging_function([](const char *msg) {
     napi_status callback_status;
 
-    if (ReferenceSingleton::GetInstance()->IsRefExists(kLogFunctionName)) {
+    if (!ReferenceSingleton::GetInstance()->IsRefExists(kLogFunctionName)) {
       return;
     }
 
@@ -316,13 +316,13 @@ void CreateStringConstants(napi_env &env, napi_value &exports, const char *str) 
   napi_value type;
   napi_status status;
   status = napi_create_string_utf8(env, str, NAPI_AUTO_LENGTH, &type);
-  if(status != napi_ok){
+  if (status != napi_ok) {
     napi_throw_type_error(env, nullptr, "Cannot create string");
     return;
   }
 
   status = napi_set_named_property(env, exports, str, type);
-  if(status != napi_ok){
+  if (status != napi_ok) {
     napi_throw_type_error(env, nullptr, "Cannot set property");
     return;
   }
