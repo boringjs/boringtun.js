@@ -2,6 +2,7 @@
 
 #include <node_api.h>
 #include <cstring>
+#include <vector>
 #include "wireguard_tunnel.h"
 #include "reference_singleton.h"
 
@@ -11,6 +12,14 @@ enum WG_OP_TYPE {
   WRITE = 2,
   TICK = 3,
   FORCE_HANDSHAKE = 4,
+};
+
+const std::vector<std::string> kWireguardStatusConstants{
+        "WIREGUARD_DONE",
+        "WRITE_TO_NETWORK",
+        "WIREGUARD_ERROR",
+        "WRITE_TO_TUNNEL_IPV4",
+        "WRITE_TO_TUNNEL_IPV6",
 };
 
 napi_value WireguardTunnelWrapperConstructor(napi_env env, napi_callback_info info);
@@ -27,8 +36,8 @@ napi_value WireguardTunnelWrapperForceHandshake(napi_env env, napi_callback_info
 
 napi_value WireguardTunnelWrapperWrite(napi_env env, napi_callback_info info);
 
-napi_value WireguardTunnelWrapperGetPublicKey(napi_env env, napi_callback_info info);
+napi_value WireguardTunnelWrapperGetPeerPublicKey(napi_env env, napi_callback_info info);
 
-void CreateStringConstants(napi_env &env, napi_value &exports, const char *str);
+napi_status CreateStringConstantsInWireguardTunnel(napi_env &env, napi_value &exports, const char *str);
 
 napi_status RegisterWireguardTunnel(napi_env env, napi_value exports);

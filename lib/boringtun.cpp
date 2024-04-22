@@ -6,10 +6,6 @@
 
 // Initialize the addon
 napi_value Init(napi_env env, napi_value exports) {
-  if (RegisterGlobalConstants(env, exports) != napi_ok) {
-    return nullptr;
-  }
-
   if (RegisterGlobalFunctions(env, exports) != napi_ok) {
     return nullptr;
   }

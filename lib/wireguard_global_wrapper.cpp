@@ -311,32 +311,3 @@ napi_value SetLoggingFunction(napi_env env, napi_callback_info info) {
 
   return result;
 }
-
-void CreateStringConstants(napi_env &env, napi_value &exports, const char *str) {
-  napi_value type;
-  napi_status status;
-  status = napi_create_string_utf8(env, str, NAPI_AUTO_LENGTH, &type);
-  if (status != napi_ok) {
-    napi_throw_type_error(env, nullptr, "Cannot create string");
-    return;
-  }
-
-  status = napi_set_named_property(env, exports, str, type);
-  if (status != napi_ok) {
-    napi_throw_type_error(env, nullptr, "Cannot set property");
-    return;
-  }
-}
-
-napi_status RegisterGlobalConstants(napi_env env, napi_value exports) {
-  napi_status status = napi_ok;
-
-  CreateStringConstants(env, exports, "WIREGUARD_DONE");
-  CreateStringConstants(env, exports, "WRITE_TO_NETWORK");
-  CreateStringConstants(env, exports, "WIREGUARD_ERROR");
-  CreateStringConstants(env, exports, "WRITE_TO_TUNNEL_IPV4");
-  CreateStringConstants(env, exports, "WRITE_TO_TUNNEL_IPV6");
-
-  return status;
-}
-

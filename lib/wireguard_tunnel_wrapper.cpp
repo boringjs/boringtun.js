@@ -302,7 +302,7 @@ napi_value WireguardTunnelWrapperHandler(napi_env env, napi_callback_info info, 
 
   wireguard_result read_result = {result_type::WIREGUARD_ERROR, 0};
 
-  uint32_t dst_size = 2000;
+  uint32_t dst_size = 2000; // MAX_WIREGUARD_PACKET_SIZE;  maybe ?
   auto *dst = new uint8_t[dst_size];
   memset(dst, 0, dst_size);
 
@@ -342,7 +342,7 @@ napi_value WireguardTunnelWrapperHandler(napi_env env, napi_callback_info info, 
     } else { // if (op_type == WG_OP_TYPE::WRITE) {
       read_result = wg->Write(src, src_size, dst, dst_size);
     }
-  } else if(op_type == WG_OP_TYPE::TICK || op_type == WG_OP_TYPE::FORCE_HANDSHAKE){
+  } else if (op_type == WG_OP_TYPE::TICK || op_type == WG_OP_TYPE::FORCE_HANDSHAKE) {
     if (op_type == WG_OP_TYPE::TICK) {
       read_result = wg->Tick(dst, dst_size);
     } else { // if (op_type == WG_OP_TYPE::FORCE_HANDSHAKE) {
@@ -428,7 +428,7 @@ napi_value WireguardTunnelWrapperForceHandshake(napi_env env, napi_callback_info
   return WireguardTunnelWrapperHandler(env, info, WG_OP_TYPE::FORCE_HANDSHAKE);
 }
 
-napi_value WireguardTunnelWrapperGetPublicKey(napi_env env, napi_callback_info info) {
+napi_value WireguardTunnelWrapperGetPeerPublicKey(napi_env env, napi_callback_info info) {
   napi_value result;
   napi_value js_this;
   napi_status status;
@@ -467,7 +467,7 @@ napi_value WireguardTunnelWrapperGetPublicKey(napi_env env, napi_callback_info i
     return nullptr;
   }
 
-  status = napi_create_string_utf8(env, wg->GetPublicKey(), NAPI_AUTO_LENGTH, &result);
+  status = napi_create_string_utf8(env, wg->GetPeerPublicKey(), NAPI_AUTO_LENGTH, &result);
   if (status != napi_ok) {
     napi_throw_error(env, nullptr, "Cannot create v8 string");
     return nullptr;
@@ -476,21 +476,48 @@ napi_value WireguardTunnelWrapperGetPublicKey(napi_env env, napi_callback_info i
   return result;
 }
 
+napi_status CreateStringConstantsInWireguardTunnel(napi_env &env, napi_value &exports, const char *str) {
+  napi_value type;
+  napi_status status;
+  status = napi_create_string_utf8(env, str, NAPI_AUTO_LENGTH, &type);
+  if (status != napi_ok) {
+    napi_throw_type_error(env, nullptr, "Cannot create string");
+    return status;
+  }
+
+  status = napi_set_named_property(env, exports, str, type);
+  if (status != napi_ok) {
+    napi_throw_type_error(env, nullptr, "Cannot set property");
+    return status;
+  }
+
+  return status;
+}
+
 napi_status RegisterWireguardTunnel(napi_env env, napi_value exports) {
   napi_status status;
   napi_property_descriptor wireguard_tunnel_properties[] = {
-          {"getPrivateKey",  nullptr, WireguardTunnelWrapperGetPrivateKey,  nullptr, nullptr, nullptr, napi_default, nullptr},
-          {"getPublicKey",   nullptr, WireguardTunnelWrapperGetPublicKey,   nullptr, nullptr, nullptr, napi_default, nullptr},
-          {"write",          nullptr, WireguardTunnelWrapperWrite,          nullptr, nullptr, nullptr, napi_default, nullptr},
-          {"read",           nullptr, WireguardTunnelWrapperRead,           nullptr, nullptr, nullptr, napi_default, nullptr},
-          {"tick",           nullptr, WireguardTunnelWrapperTick,           nullptr, nullptr, nullptr, napi_default, nullptr},
-          {"forceHandshake", nullptr, WireguardTunnelWrapperForceHandshake, nullptr, nullptr, nullptr, napi_default, nullptr}
+          {"getPrivateKey",    nullptr, WireguardTunnelWrapperGetPrivateKey,    nullptr, nullptr, nullptr, napi_default, nullptr},
+          {"getPeerPublicKey", nullptr, WireguardTunnelWrapperGetPeerPublicKey, nullptr, nullptr, nullptr, napi_default, nullptr},
+          {"write",            nullptr, WireguardTunnelWrapperWrite,            nullptr, nullptr, nullptr, napi_default, nullptr},
+          {"read",             nullptr, WireguardTunnelWrapperRead,             nullptr, nullptr, nullptr, napi_default, nullptr},
+          {"tick",             nullptr, WireguardTunnelWrapperTick,             nullptr, nullptr, nullptr, napi_default, nullptr},
+          {"forceHandshake",   nullptr, WireguardTunnelWrapperForceHandshake,   nullptr, nullptr, nullptr, napi_default, nullptr}
   };
 
   napi_value wireguard_tunnel_class;
   status = napi_define_class(env, "WireguardTunnel", NAPI_AUTO_LENGTH, WireguardTunnelWrapperConstructor, nullptr, 6,
                              wireguard_tunnel_properties,
                              &wireguard_tunnel_class);
+
+
+  for (auto &value: kWireguardStatusConstants) {
+    status = CreateStringConstantsInWireguardTunnel(env, wireguard_tunnel_class, value.c_str());
+    if (status != napi_ok) {
+      return status;
+    }
+  }
+
   if (status != napi_ok) {
     return status;
   }

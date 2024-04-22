@@ -13,7 +13,7 @@ public:
   WireguardTunnel(
           std::string private_key,
           std::string public_key,
-          std::string preshared_key,
+          std::string pre_shared_key,
           int32_t keep_alive,
           int32_t index);
 
@@ -41,7 +41,7 @@ public:
 
   const char *GetPrivateKey();
 
-  const char *GetPublicKey();
+  const char *GetPeerPublicKey();
 
   ~WireguardTunnel();
 
@@ -49,8 +49,8 @@ public:
 
 private:
   const std::string private_key_;
-  const std::string public_key_;
-  const std::string preshared_key_;
+  const std::string peer_public_key_;
+  const std::string pre_shared_key_;
   int32_t keep_alive_;
   int32_t index_;
   wireguard_tunnel *tunnel_;

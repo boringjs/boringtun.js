@@ -2,17 +2,17 @@
 
 int WireguardTunnel::id_counter_ = 1;
 
-WireguardTunnel::WireguardTunnel(std::string private_key, std::string public_key, std::string preshared_key,
+WireguardTunnel::WireguardTunnel(std::string private_key, std::string public_key, std::string pre_shared_key,
                                  int32_t keep_alive, int32_t index)
         : private_key_(private_key),
-          public_key_(public_key),
-          preshared_key_(preshared_key),
+          peer_public_key_(public_key),
+          pre_shared_key_(pre_shared_key),
           keep_alive_(keep_alive),
           index_(index),
           tunnel_(new_tunnel(
                   private_key.c_str(),
                   public_key.c_str(),
-                  preshared_key.size() > 0 ? preshared_key_.c_str() : nullptr,
+                  pre_shared_key.empty() ? nullptr : pre_shared_key_.c_str(),
                   keep_alive_,
                   index_)) {
   id_ = id_counter_++;
@@ -42,8 +42,8 @@ const char *WireguardTunnel::GetPrivateKey() {
   return private_key_.c_str();
 }
 
-const char *WireguardTunnel::GetPublicKey() {
-  return public_key_.c_str();
+const char *WireguardTunnel::GetPeerPublicKey() {
+  return peer_public_key_.c_str();
 }
 
 WireguardTunnel::~WireguardTunnel() {

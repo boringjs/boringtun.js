@@ -1,21 +1,27 @@
+/**
+ * @typedef {Class} WireguardTunnel
+ * @property {function} getPrivateKey
+ * @property {function} getPeerPublicKey
+ * @property {function} write
+ * @property {function} read
+ * @property {function} tick
+ * @property {function} forceHandshake
+ * @property {string} WIREGUARD_DONE
+ * @property {string} WRITE_TO_NETWORK
+ * @property {string} WIREGUARD_ERROR
+ * @property {string} WRITE_TO_TUNNEL_IPV4
+ * @property {string} WRITE_TO_TUNNEL_IPV6
+ */
+
 const {
   generateSecretKeyBase64,
   generateSecretKey,
   getPublicKeyFrom,
   checkBase64EncodedX25519Key,
   setLoggingFunction,
-  WireguardTunnel,
-  WIREGUARD_DONE,
-  WRITE_TO_NETWORK,
-  WIREGUARD_ERROR,
-  WRITE_TO_TUNNEL_IPV4,
-  WRITE_TO_TUNNEL_IPV6,
+  /** @type{WireguardTunnel} **/WireguardTunnel,
 } = require('../build/lib/boringtunjs.node')
 
-/**
- * @typedef {Object} WireguardTunnel
- * @property {method} write
- */
 
 /**
  * @param {string} privateKey
@@ -121,9 +127,4 @@ module.exports = {
   setLoggingFunction: setLoggingFunctionImpl,
   checkValidKey,
   WireguardTunnel,
-  WIREGUARD_DONE,
-  WRITE_TO_NETWORK,
-  WIREGUARD_ERROR,
-  WRITE_TO_TUNNEL_IPV4,
-  WRITE_TO_TUNNEL_IPV6,
 }
