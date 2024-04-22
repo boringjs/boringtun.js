@@ -119,7 +119,6 @@ function checkValidKey(key) {
   return false
 }
 
-
 module.exports = {
   generateKeyPair,
   generatePrivateKey: generatePrivateKeyImpl,

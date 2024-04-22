@@ -260,8 +260,8 @@ napi_value WireguardTunnelWrapperHandler(napi_env env, napi_callback_info info, 
   napi_status status;
 
   size_t argc_expect = ((op_type == WG_OP_TYPE::READ) || (op_type == WG_OP_TYPE::WRITE)) ? 1 : 0;
-  size_t argc = argc_expect;
-  napi_value args[argc];
+  size_t argc = 1;
+  napi_value args[1];
   status = napi_get_cb_info(env, info, &argc, args, &js_this, nullptr);
   if (status != napi_ok) {
     napi_throw_error(env, nullptr, "Cannot get args from function");
