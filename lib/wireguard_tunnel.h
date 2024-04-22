@@ -8,6 +8,8 @@ extern "C" {
 
 class WireguardTunnel {
 public:
+  static int id_counter_;
+
   WireguardTunnel(
           std::string private_key,
           std::string public_key,
@@ -52,4 +54,5 @@ private:
   int32_t keep_alive_;
   int32_t index_;
   wireguard_tunnel *tunnel_;
+  int id_;
 };

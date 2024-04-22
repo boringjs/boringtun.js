@@ -1,5 +1,6 @@
 #include "./wireguard_tunnel.h"
 
+int WireguardTunnel::id_counter_ = 1;
 
 WireguardTunnel::WireguardTunnel(std::string private_key, std::string public_key, std::string preshared_key,
                                  int32_t keep_alive, int32_t index)
@@ -14,6 +15,7 @@ WireguardTunnel::WireguardTunnel(std::string private_key, std::string public_key
                   preshared_key.size() > 0 ? preshared_key_.c_str() : nullptr,
                   keep_alive_,
                   index_)) {
+  id_ = id_counter_++;
 }
 
 wireguard_result WireguardTunnel::Write(const uint8_t *src, uint32_t src_size, uint8_t *dst, uint32_t dst_size) {
