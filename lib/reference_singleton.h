@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <string>
 #include <utility>
 #include <node_api.h>
 
