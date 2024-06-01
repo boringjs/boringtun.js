@@ -11,3 +11,5 @@ tmp
 CMakeLists.txt
 jest.config.js
 tests
+.eslintrc.js
+.prettierrc.js
