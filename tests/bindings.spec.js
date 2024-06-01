@@ -80,14 +80,60 @@ describe('C++ bindings', () => {
     expect((p1 = peer1.read(p2.data)).type).toBe(WireguardTunnel.WRITE_TO_NETWORK)
     expect(peer2.read(p1.data).type).toBe(WireguardTunnel.WIREGUARD_DONE)
 
+    // ipv4 packet
+    // GET / HTTP/1.1
+    // Host: example.com
+    // User-Agent: curl/8.4.0
+    // Accept: */*
+    const ipv4PacketBuffer = Buffer.from(
+      'RQAAfgAAQABABvubCggAEF241w7LfQBQ4L6GTQWBDfWAGAgEBQMAAAEBCApIq7vwRD8MpEdFVCAvIEhUVFAvMS4xDQpIb3N0OiBleGFtcGxlLmNvbQ0KVXNlci1BZ2VudDogY3VybC84LjQuMA0KQWNjZXB0OiAqLyoNCg0K',
+      'base64',
+    )
+
+    p1 = peer1.write(ipv4PacketBuffer)
+    expect(p1.data).not.toEqual(ipv4PacketBuffer)
+    p2 = peer2.read(p1.data)
+
+    expect(p2.type).toBe(WireguardTunnel.WRITE_TO_TUNNEL_IPV4)
+    expect(p2.data).toEqual(ipv4PacketBuffer)
+  })
+
+  test('Wireguard tunnel wrapper send ip package', () => {
+    const { privateKey: privateKey1, publicKey: publicKey1 } = generateKeyPair()
+    const { privateKey: privateKey2, publicKey: publicKey2 } = generateKeyPair()
+    const keepAlive = 25
+    const index1 = 500
+    const index2 = 500
+
+    const peer1 = new WireguardTunnelWrapper({
+      privateKey: privateKey1,
+      publicKey: publicKey2,
+      keepAlive,
+      index: index1,
+    })
+    const peer2 = new WireguardTunnelWrapper({
+      privateKey: privateKey2,
+      publicKey: publicKey1,
+      keepAlive,
+      index: index2,
+    })
+
+    let p1, p2
+
+    expect((p1 = peer1.forceHandshake()).type).toBe(WireguardTunnel.WRITE_TO_NETWORK)
+    expect((p2 = peer2.read(p1.data)).type).toBe(WireguardTunnel.WRITE_TO_NETWORK)
+    expect((p1 = peer1.read(p2.data)).type).toBe(WireguardTunnel.WRITE_TO_NETWORK)
+    expect(peer2.read(p1.data).type).toBe(WireguardTunnel.WIREGUARD_DONE)
 
     // ipv4 package
     // GET / HTTP/1.1
     // Host: example.com
     // User-Agent: curl/8.4.0
     // Accept: */*
-    const ipv4PacketBuffer = Buffer.from('RQAAfgAAQABABvubCggAEF241w7LfQBQ4L6GTQWBDfWAGAgEBQMAAAEBCApIq7vwRD8MpEdFVCAvIEhUVFAvMS4xDQpIb3N0OiBleGFtcGxlLmNvbQ0KVXNlci1BZ2VudDogY3VybC84LjQuMA0KQWNjZXB0OiAqLyoNCg0K', 'base64')
-
+    const ipv4PacketBuffer = Buffer.from(
+      'RQAAfgAAQABABvubCggAEF241w7LfQBQ4L6GTQWBDfWAGAgEBQMAAAEBCApIq7vwRD8MpEdFVCAvIEhUVFAvMS4xDQpIb3N0OiBleGFtcGxlLmNvbQ0KVXNlci1BZ2VudDogY3VybC84LjQuMA0KQWNjZXB0OiAqLyoNCg0K',
+      'base64',
+    )
 
     p1 = peer1.write(ipv4PacketBuffer)
     expect(p1.data).not.toEqual(ipv4PacketBuffer)
@@ -97,4 +143,3 @@ describe('C++ bindings', () => {
     expect(p2.data).toEqual(ipv4PacketBuffer)
   })
 })
-
