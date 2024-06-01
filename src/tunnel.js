@@ -1,11 +1,11 @@
 /**
  * @typedef {Class} WireguardTunnel
- * @property {function} getPrivateKey
- * @property {function} getPeerPublicKey
- * @property {function} write
- * @property {function} read
- * @property {function} tick
- * @property {function} forceHandshake
+ * @property {Function} getPrivateKey
+ * @property {Function} getPeerPublicKey
+ * @property {Function} write
+ * @property {Function} read
+ * @property {Function} tick
+ * @property {Function} forceHandshake
  * @property {string} WIREGUARD_DONE
  * @property {string} WRITE_TO_NETWORK
  * @property {string} WIREGUARD_ERROR
@@ -19,9 +19,8 @@ const {
   getPublicKeyFrom,
   checkBase64EncodedX25519Key,
   setLoggingFunction,
-  /** @type{WireguardTunnel} **/WireguardTunnel,
+  WireguardTunnel: /** @type{WireguardTunnel} **/ WireguardTunnel,
 } = require('../build/lib/boringtunjs.node')
-
 
 /**
  * @param {string} privateKey
@@ -61,7 +60,7 @@ function generateKeyPair() {
   const privateKey = privateBuffer.toString('base64')
   const publicKey = publicBuffer.toString('base64')
 
-  return {privateKey, publicKey}
+  return { privateKey, publicKey }
 }
 
 /**
@@ -80,11 +79,7 @@ function getPublicKeyFromImpl(privateKey) {
     return getPublicKeyFromString(privateKey)
   }
 
-  if (
-    typeof privateKey === 'object' &&
-    !!privateKey &&
-    privateKey instanceof Buffer
-  ) {
+  if (typeof privateKey === 'object' && !!privateKey && privateKey instanceof Buffer) {
     return getPublicKeyFromBuffer(privateKey)
   }
 
@@ -92,7 +87,7 @@ function getPublicKeyFromImpl(privateKey) {
 }
 
 /**
- * @param {function} logger
+ * @param {Function} logger
  * @throws
  */
 function setLoggingFunctionImpl(logger) {
@@ -104,8 +99,8 @@ function setLoggingFunctionImpl(logger) {
 }
 
 /**
- * @param {string} key
- * @return {boolean}
+ * @param {Buffer|string} key
+ * @returns {boolean}
  */
 function checkValidKey(key) {
   if (typeof key === 'string') {
@@ -119,6 +114,19 @@ function checkValidKey(key) {
   return false
 }
 
+class WireguardTunnelWrapper extends WireguardTunnel {
+  /**
+   * @param {string} privateServerKey
+   * @param {string} publicKey
+   * @param {string} [preSharedKey]
+   * @param {number} keepAlive
+   * @param {number} index
+   */
+  constructor({ privateKey, publicKey, preSharedKey = '', keepAlive, index }) {
+    super(privateKey, publicKey, preSharedKey, keepAlive, index)
+  }
+}
+
 module.exports = {
   generateKeyPair,
   generatePrivateKey: generatePrivateKeyImpl,
@@ -126,4 +134,5 @@ module.exports = {
   setLoggingFunction: setLoggingFunctionImpl,
   checkValidKey,
   WireguardTunnel,
+  WireguardTunnelWrapper,
 }
