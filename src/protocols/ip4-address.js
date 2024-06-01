@@ -57,7 +57,7 @@ class IP4Address {
   }
 
   copy() {
-    return new IP(this.#ipBuffer)
+    return new IP4Address(this.#ipBuffer)
   }
 }
 
