@@ -1,6 +1,6 @@
 const {
   WireguardTunnel,
-  setLoggingFunction,
+  WireguardTunnelWrapper,
   generateKeyPair,
   checkValidKey,
   getPublicKeyFrom,
@@ -9,7 +9,7 @@ const {
 
 describe('C++ bindings', () => {
   test('Generate key pair', () => {
-    const {publicKey, privateKey} = generateKeyPair()
+    const { publicKey, privateKey } = generateKeyPair()
 
     expect(typeof privateKey).toBe('string')
     expect(typeof publicKey).toBe('string')
@@ -42,8 +42,8 @@ describe('C++ bindings', () => {
   })
 
   test('Wireguard tunnel handshake exchange', () => {
-    const {privateKey: privateKey1, publicKey: publicKey1} = generateKeyPair()
-    const {privateKey: privateKey2, publicKey: publicKey2} = generateKeyPair()
+    const { privateKey: privateKey1, publicKey: publicKey1 } = generateKeyPair()
+    const { privateKey: privateKey2, publicKey: publicKey2 } = generateKeyPair()
     const keepAlive = 25
     const preSharedKey = ''
     const index = 10
@@ -63,8 +63,8 @@ describe('C++ bindings', () => {
   })
 
   test('Wireguard tunnel send ip package', () => {
-    const {privateKey: privateKey1, publicKey: publicKey1} = generateKeyPair()
-    const {privateKey: privateKey2, publicKey: publicKey2} = generateKeyPair()
+    const { privateKey: privateKey1, publicKey: publicKey1 } = generateKeyPair()
+    const { privateKey: privateKey2, publicKey: publicKey2 } = generateKeyPair()
     const keepAlive = 25
     const preSharedKey = ''
     const index1 = 500
@@ -73,7 +73,7 @@ describe('C++ bindings', () => {
     const peer1 = new WireguardTunnel(privateKey1, publicKey2, preSharedKey, keepAlive, index1)
     const peer2 = new WireguardTunnel(privateKey2, publicKey1, preSharedKey, keepAlive, index2)
 
-    let p1, p2;
+    let p1, p2
 
     expect((p1 = peer1.forceHandshake()).type).toBe(WireguardTunnel.WRITE_TO_NETWORK)
     expect((p2 = peer2.read(p1.data)).type).toBe(WireguardTunnel.WRITE_TO_NETWORK)
