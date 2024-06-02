@@ -1,5 +1,6 @@
 class IP4Address {
   #ipBuffer = Buffer.alloc(4)
+  #mask = 32
 
   /**
    * @param {Buffer|number|string|IP4Address} init
@@ -21,11 +22,17 @@ class IP4Address {
     }
 
     if (typeof init === 'string') {
-      if (!/^\d+\.\d+\.\d+\.\d+$/.test(init)) {
+      if (!/^\d+\.\d+\.\d+\.\d+$/.test(init) && !/^\d+\.\d+\.\d+\.\d+\/\d+$/.test(init)) {
         throw new TypeError('invalid ipv4 format')
       }
 
-      const tmp = init.split('.').map((a) => parseInt(a, 10) % 256)
+      const [ip, mask] = init.split('/')
+
+      const tmp = ip.split('.').map((a) => parseInt(a, 10) % 256)
+
+      if (mask) {
+        this.#mask = parseInt(mask)
+      }
 
       this.#ipBuffer[0] = tmp[0]
       this.#ipBuffer[1] = tmp[1]
@@ -45,6 +52,23 @@ class IP4Address {
     }
 
     throw new TypeError('Cannot create ip from params')
+  }
+
+  match(ip) {
+    const ipBuffer = (ip instanceof IP4Address ? ip : new IP4Address(ip)).toBuffer()
+
+    for (let i = 0; i < this.#mask; i++) {
+      const byte = (i - (i % 8)) / 8
+      const shift = 7 - (i % 8)
+      const mask = this.#ipBuffer[byte]
+      const value = ipBuffer[byte]
+      const test = ((1 << shift) & mask) === ((1 << shift) & value)
+      if (!test) {
+        return false
+      }
+    }
+
+    return true
   }
 
   toString() {

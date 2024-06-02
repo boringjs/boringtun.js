@@ -32,6 +32,25 @@ describe('IP4Address', () => {
     expect(`${new IP4Address('13.251.12.118')}`).toBe('13.251.12.118')
   })
 
+  test('match mask', () => {
+    const allowedIP1 = new IP4Address('1.2.3.4/32')
+    expect(allowedIP1.match('1.2.3.4')).toBeTruthy()
+    expect(allowedIP1.match('1.1.1.2')).toBeFalsy()
+    expect(allowedIP1.match('1.1.1.2')).toBeFalsy()
+
+    const allowedIP2 = new IP4Address('1.2.3.4/24')
+    expect(allowedIP2.match('1.2.3.4')).toBeTruthy()
+    expect(allowedIP2.match('1.2.3.255')).toBeTruthy()
+    expect(allowedIP2.match('1.1.2.0')).toBeFalsy()
+    expect(allowedIP2.match('3.1.1.2')).toBeFalsy()
+
+    const allowedIP3 = new IP4Address('0.0.0.0/0')
+    expect(allowedIP3.match('1.2.3.4')).toBeTruthy()
+    expect(allowedIP3.match('1.2.3.255')).toBeTruthy()
+    expect(allowedIP3.match('1.1.2.0')).toBeTruthy()
+    expect(allowedIP3.match('3.1.1.2')).toBeTruthy()
+  })
+
   test('convert from buffer to buffer', () => {
     const input = Buffer.from([13, 251, 12, 118, 200, 400])
     expect(new IP4Address(input).toBuffer()).toEqual(Buffer.from([13, 251, 12, 118]))
