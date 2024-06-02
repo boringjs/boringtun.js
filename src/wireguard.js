@@ -4,6 +4,7 @@ const IPLayer = require('./protocols/ip-layer.js')
 const { checkValidKey, getPublicKeyFrom } = require('./tunnel.js')
 const Peer = require('./peer.js')
 const IP4Address = require('./protocols/ip4-address.js')
+const IPv4Packet = require('./protocols/ip4-packet.js')
 
 class Wireguard extends EventEmitter {
   #ipLayer = new IPLayer()
@@ -11,13 +12,14 @@ class Wireguard extends EventEmitter {
   #publicKey = ''
   #listenPort = 0
   #server /** @type {Socket}*/ = dgram.createSocket('udp4')
-  #ip = new IP4Address(0)
-  #testPeer = null // todo remove
-  #mapPeerIpToPeer = new Map()
+  #address = new IP4Address(0)
+  #mapPublicKeyToPeer = new Map()
   #mapEndpointIpToPeer = new Map()
   #index = 1
+  #logLevel = 0
+  #log = () => {}
 
-  constructor({ privateKey, listenPort, ip }) {
+  constructor({ privateKey, listenPort, address, logLevel = 0, log = console.log }) {
     if (typeof privateKey !== 'string' || !checkValidKey(privateKey)) {
       throw new Error('Invalid privateKey')
     }
@@ -30,18 +32,11 @@ class Wireguard extends EventEmitter {
     this.#privateKey = privateKey
     this.#publicKey = getPublicKeyFrom(privateKey)
     this.#listenPort = listenPort
-    this.#ip = new IP4Address(ip)
+    this.#address = new IP4Address(address)
     this.#createServerListeners()
-    this.#ipLayer.on('ipv4ToTunnel', this.onMessageFromIPLayer.bind(this))
-  }
-
-  onMessageFromIPLayer(ipv4Packet) {
-    const peer = this.#getPeerByMessage({}) // todo
-    const message = ipv4Packet.toBuffer()
-    if (ipv4Packet.protocol === 'TCP') {
-      console.log('to tunnel:', message.toString('hex'))
-    }
-    peer.write(message)
+    this.#logLevel = logLevel
+    this.#log = log
+    this.#ipLayer.on('ipv4ToTunnel', this.#onMessageFromIPLayer.bind(this))
   }
 
   /**
@@ -65,56 +60,120 @@ class Wireguard extends EventEmitter {
     return this.#listenPort
   }
 
-  /**
-   * @param {Buffer} msg
-   * @param {IP4Address|string} address
-   * @param {number} port
-   * @return {Peer}
-   */
-  #getPeerByMessage({ msg, endpoint }) {
-    return this.#testPeer
+  addPeer({ publicKey, allowedIPs, keepAlive = 25, endpoint }) {
+    const [endpointAddress, endpointPort] = (endpoint || '').split(':')
+
+    const peer = new Peer({
+      privateServerKey: this.privateKey,
+      publicKey,
+      allowedIPs,
+      keepAlive,
+      index: this.#index++,
+      endpointPort,
+      endpointAddress,
+    })
+
+    this.#mapPublicKeyToPeer.set(publicKey, peer)
+
+    if (peer.endpoint) {
+      this.#mapEndpointIpToPeer.set(endpoint, peer)
+    }
+
+    peer.on('writeToTunnel', ({ address, port, data }) => {
+      console.log(`tunnel ${data.length} -> ${address}:${port}`)
+      this.#onWriteToTunnel({ address, port, data })
+    })
+
+    peer.on('writeToIp4Layer', (data) => {
+      this.#onWriteToIPv4(data)
+    })
+
+    return this
+  }
+
+  listen() {
+    this.#server.bind(this.#listenPort, this.#onListening.bind(this))
+  }
+
+  #route(ip) {
+    for (const [, peer] of this.#mapPublicKeyToPeer) {
+      if (peer.match(ip)) {
+        return peer
+      }
+    }
+
+    return null
+  }
+
+  #onMessageFromIPLayer(ipv4Packet) {
+    const peer = this.#route(ipv4Packet.destinationIP)
+    if (!peer) {
+      return
+    }
+
+    peer.write(ipv4Packet.toBuffer())
   }
 
   #onWriteToTunnel({ address, port, data }) {
     this.#server.send(data, port, address, (error) => (error ? console.error(`Error onsend to client${error}`) : null))
   }
 
-  #onWriteToIPv4({ peerIp, data }) {
-    this.#ipLayer.receivePacket({ peerIp, data })
+  #onWriteToIPv4(data) {
+    const ipv4Packet = new IPv4Packet(data)
+    const peer = this.#route(ipv4Packet.destinationIP)
+    if (peer) {
+      if (this.#logLevel > 1) {
+        console.log(`back to peer ${peer.allowedIPs} ${ipv4Packet.destinationIP}`)
+      }
+      return peer.write(ipv4Packet.toBuffer())
+    }
+    if (this.#logLevel > 1) {
+      console.log(`goto tcp layer -> ${ipv4Packet.destinationIP}`)
+    }
+    this.#ipLayer.receivePacket(ipv4Packet)
   }
 
   /**
-   * @param {Buffer} msg
+   * @param {Buffer} message
    * @param {{address: string, port: number}}
    */
-  #onMessage(msg, { address, port }) {
+  #onMessage(message, { address, port }) {
+    if (this.#logLevel > 2) {
+      console.log(`message from ${address}`)
+    }
+
     const endpoint = `${address}:${port}`
 
-    // routing
-    const peer = this.#getPeerByMessage({ msg, endpoint })
+    if (this.#mapEndpointIpToPeer.has(endpoint)) {
+      return this.#mapEndpointIpToPeer.get(endpoint).read(message)
+    }
 
-    if (!peer) {
+    if (message.readUInt32LE(0) !== 1 || message.length < 32) {
+      // not handshake
       return
     }
 
-    if (peer.endpoint && this.#mapEndpointIpToPeer.get(peer.endpoint) !== peer) {
-      this.#mapEndpointIpToPeer.delete(peer.endpoint)
+    for (const [, peer] of this.#mapPublicKeyToPeer) {
+      const oldEndpoint = peer.endpoint
+      if (!peer.readHandshake({ message, address, port })) {
+        console.log('error with handshake')
+        continue
+      }
+
+      if (oldEndpoint) {
+        this.#mapEndpointIpToPeer.delete(oldEndpoint)
+      }
+
+      this.#mapEndpointIpToPeer.set(peer.endpoint, peer)
+      return
     }
-
-    peer.endpointPort = port
-    peer.endpointAddress = address
-
-    this.#mapEndpointIpToPeer.set(endpoint, peer)
-
-    peer.read(msg)
   }
 
   /**
    * @param {Buffer} data
    */
   #onError(data) {
-    console.log(data)
-    // todo
+    console.error(data) // todo
   }
 
   #createServerListeners() {
@@ -122,45 +181,16 @@ class Wireguard extends EventEmitter {
     this.#server.on('message', this.#onMessage.bind(this))
   }
 
-  addPeer({ publicKey, ip, keepAlive = 25, endpoint }) {
-    const [endpointAddress, endpointPort] = (endpoint || '').split(':')
-
-    const peer = new Peer({
-      privateServerKey: this.privateKey,
-      publicKey,
-      ip,
-      keepAlive,
-      index: this.#index++,
-      endpointPort,
-      endpointAddress,
-    })
-
-    this.#mapPeerIpToPeer.set(ip, peer)
-
-    if (peer.endpoint) {
-      this.#mapEndpointIpToPeer.set(endpoint, peer)
-      // todo forcehandshake
+  #onListening() {
+    if (this.#logLevel) {
+      console.log('Start working')
     }
 
-    peer.on('writeToTunnel', ({ address, port, data }) => {
-      this.#onWriteToTunnel({ address, port, data })
-    })
-
-    peer.on('writeToIp4Layer', ({ peerIp, data }) => {
-      this.#onWriteToIPv4({ peerIp, data })
-    })
-
-    this.#testPeer = peer // todo: this.testTunnel.on('data', () => {})
-
-    return this
-  }
-
-  #onListening() {
-    console.log('start working')
-  }
-
-  listen() {
-    this.#server.bind(this.#listenPort, this.#onListening.bind(this))
+    for (const [, peer] of this.#mapPublicKeyToPeer) {
+      if (peer.endpoint) {
+        peer.forceHandshake()
+      }
+    }
   }
 }
 

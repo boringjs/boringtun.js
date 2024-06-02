@@ -3,25 +3,14 @@ const IP4Address = require('./protocols/ip4-address.js')
 const { WireguardTunnelWrapper } = require('./tunnel.js')
 
 class Peer extends EventEmitter {
-  #ip = new IP4Address(0)
+  #allowedIPs = new IP4Address(0)
   #tunnel = /** @type{WireguardTunnel | null} */ null
-  #endpointAddress = new IP4Address(0)
+  #endpointAddress = null
   #endpointPort = 0
 
-  constructor({ privateServerKey, publicKey, ip, keepAlive, index, endpointAddress, endpointPort }) {
+  constructor({ privateServerKey, publicKey, allowedIPs, keepAlive, index, endpointAddress, endpointPort }) {
     super()
-    this.#ip = new IP4Address(ip)
-
-    if (endpointAddress && endpointPort) {
-      this.#endpointPort = endpointPort
-      this.#endpointPort = endpointPort
-    } else {
-      this.#endpointPort = 0
-      this.#endpointAddress = null
-    }
-
-    // todo create tick and test it
-    // todo emit handshake
+    this.#allowedIPs = new IP4Address(allowedIPs)
 
     this.#tunnel = new WireguardTunnelWrapper({
       privateKey: privateServerKey,
@@ -29,10 +18,13 @@ class Peer extends EventEmitter {
       keepAlive,
       index,
     })
-  }
 
-  get ip() {
-    return this.#ip
+    if (endpointAddress && endpointPort) {
+      this.#endpointPort = endpointPort
+      this.#endpointAddress = endpointAddress
+    }
+    // todo create tick and test it
+    // todo emit handshake
   }
 
   get endpointAddress() {
@@ -62,9 +54,15 @@ class Peer extends EventEmitter {
     return ''
   }
 
+  /**
+   * @param {IP4Address} ip
+   */
+  match(ip) {
+    return this.#allowedIPs.match(ip)
+  }
+
   routing({ data, type }) {
     if (type === WireguardTunnelWrapper.WIREGUARD_DONE) {
-      console.log('Done')
       // do nothing
       return
     }
@@ -73,7 +71,6 @@ class Peer extends EventEmitter {
       const address = this.#endpointAddress.toString()
       const port = this.#endpointPort
 
-      console.log(`write to tunnel ${data.length}`)
       this.emit('writeToTunnel', { address, port, data })
       return
     }
@@ -84,13 +81,12 @@ class Peer extends EventEmitter {
     }
 
     if (type === WireguardTunnelWrapper.WRITE_TO_TUNNEL_IPV4) {
-      const peerIp = this.#ip
-      this.emit('writeToIp4Layer', { peerIp, data })
+      this.emit('writeToIp4Layer', data)
       return
     }
 
     if (type === WireguardTunnelWrapper.WRITE_TO_TUNNEL_IPV6) {
-      console.error('Do not support IPV6')
+      console.error('This implementation do not support IPV6')
       return
     }
 
@@ -98,11 +94,32 @@ class Peer extends EventEmitter {
   }
 
   read(msg) {
-    this.routing(this.#tunnel.read(msg))
+    return this.routing(this.#tunnel.read(msg))
   }
 
   write(msg) {
     this.routing(this.#tunnel.write(msg))
+  }
+
+  /**
+   * @param {object} options
+   * @param {Buffer} options.message
+   * @param {string} options.address
+   * @param {number} options.port
+   * @return {boolean}
+   */
+  readHandshake({ message, address, port }) {
+    const result = this.#tunnel.read(message)
+
+    if (result.type === WireguardTunnelWrapper.WIREGUARD_ERROR) {
+      return false
+    }
+
+    this.endpointAddress = address
+    this.endpointPort = port
+
+    setTimeout(this.routing.bind(this, result)) // for async
+    return true
   }
 
   forceHandshake() {

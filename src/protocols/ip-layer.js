@@ -118,20 +118,16 @@ class IPLayer extends EventEmitter {
     }
   }
 
-  // : Handles incoming IPv4 packets and routes them to the correct SocketStream or UDP.
-  receivePacket({ data }) {
-    const ipv4Packet = new IPv4Packet(data)
-
+  receivePacket(ipv4Packet) {
     if (ipv4Packet.protocol === UDP) {
       return this.#receiveUDPPacket(ipv4Packet)
     }
 
     if (ipv4Packet.protocol === TCP) {
-      console.log('tcp:', data.toString('hex'))
       return this.#receiveTCPPacket(ipv4Packet)
     }
 
-    console.log(`unknown protocol ${ipv4Packet.protocolNum}`, ipv4Packet.payload.toString('hex'))
+    // console.log(`unknown protocol ${ipv4Packet.protocolNum}`, ipv4Packet.payload.toString('hex'))
   }
 
   #receiveUDPPacket(ipv4Packet) {
