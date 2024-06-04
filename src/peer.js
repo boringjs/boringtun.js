@@ -3,14 +3,14 @@ const IP4Address = require('./protocols/ip4-address.js')
 const { WireguardTunnelWrapper } = require('./tunnel.js')
 
 class Peer extends EventEmitter {
-  #allowedIPs = new IP4Address(0)
-  #tunnel = /** @type{WireguardTunnel | null} */ null
+  #allowedIPs = /** @type{IP4Address[]}*/ []
+  #tunnel = /** @type{WireguardTunnel|null} */ null
   #endpointAddress = null
   #endpointPort = 0
 
   constructor({ privateServerKey, publicKey, allowedIPs, keepAlive, index, endpointAddress, endpointPort }) {
     super()
-    this.#allowedIPs = new IP4Address(allowedIPs)
+    this.#allowedIPs = allowedIPs.split(',').map((ip) => new IP4Address(ip))
 
     this.#tunnel = new WireguardTunnelWrapper({
       privateKey: privateServerKey,
@@ -58,7 +58,7 @@ class Peer extends EventEmitter {
    * @param {IP4Address} ip
    */
   match(ip) {
-    return this.#allowedIPs.match(ip)
+    return this.#allowedIPs.some((filterIP) => filterIP.match(ip))
   }
 
   routing({ data, type }) {
