@@ -13,8 +13,8 @@ class Wireguard extends EventEmitter {
   #listenPort = 0
   #server /** @type {Socket}*/ = dgram.createSocket('udp4')
   #address = new IP4Address(0)
-  #mapPublicKeyToPeer = new Map()
-  #mapEndpointIpToPeer = new Map()
+  #peers = /** @type{Set<Peer>}*/ new Set()
+  #mapEndpointIpToPeer = /** @type{Map<string,Peer>} */ new Map()
   #index = 1
   #logLevel = 0
   #log = () => {}
@@ -73,14 +73,14 @@ class Wireguard extends EventEmitter {
       endpointAddress,
     })
 
-    this.#mapPublicKeyToPeer.set(publicKey, peer)
+    this.#peers.add(publicKey, peer)
 
     if (peer.endpoint) {
       this.#mapEndpointIpToPeer.set(endpoint, peer)
     }
 
     peer.on('writeToTunnel', ({ address, port, data }) => {
-      console.log(`tunnel ${data.length} -> ${address}:${port}`)
+      // console.log(`tunnel ${data.length} -> ${address}:${port}`)
       this.#onWriteToTunnel({ address, port, data })
     })
 
@@ -96,7 +96,7 @@ class Wireguard extends EventEmitter {
   }
 
   #route(ip) {
-    for (const [, peer] of this.#mapPublicKeyToPeer) {
+    for (const peer of this.#peers) {
       if (peer.match(ip)) {
         return peer
       }
@@ -139,7 +139,7 @@ class Wireguard extends EventEmitter {
    */
   #onMessage(message, { address, port }) {
     if (this.#logLevel > 2) {
-      console.log(`message from ${address}`)
+      // console.log(`message from ${address}`)
     }
 
     const endpoint = `${address}:${port}`
@@ -153,7 +153,7 @@ class Wireguard extends EventEmitter {
       return
     }
 
-    for (const [, peer] of this.#mapPublicKeyToPeer) {
+    for (const peer of this.#peers) {
       const oldEndpoint = peer.endpoint
       if (!peer.readHandshake({ message, address, port })) {
         console.log('error with handshake')
@@ -186,12 +186,14 @@ class Wireguard extends EventEmitter {
       console.log('Start working')
     }
 
-    for (const [, peer] of this.#mapPublicKeyToPeer) {
+    for (const peer of this.#peers) {
       if (peer.endpoint) {
         peer.forceHandshake()
       }
     }
   }
+
+  getStat() {}
 }
 
 module.exports = Wireguard

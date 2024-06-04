@@ -17,6 +17,7 @@ npm install boringtunjs
 ## In progress
 
 1. The network stack (TCP/UDP) has errors and is in active development. Sockets are not closing properly.
+2. Statistics by peer
 
 ## Supported platforms
 
