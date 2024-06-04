@@ -40,7 +40,7 @@ class SocketStream extends EventEmitter {
   #setupListeners() {
     this.#netSocket.on('data', (this.#onNetSocketReceiveBind = this.#onNetSocketReceive.bind(this)))
     this.#netSocket.on('error', (this.#onNetSocketErrorBind = this.#onNetSocketError.bind(this)))
-    // this.#netSocket.on('close', (this.#closeBind = this.close.bind(this)))
+    this.#netSocket.on('close', (this.#closeBind = this.close.bind(this)))
   }
 
   #onNetSocketError(error) {
@@ -52,7 +52,7 @@ class SocketStream extends EventEmitter {
    * @param {Buffer} data
    */
   #onNetSocketReceive(data) {
-    console.log('data from socket: ', data.slice(0, 50).toString())
+    // console.log('data from socket: ', data.slice(0, 50).toString())
     let offset = 0
 
     while (offset < data.length) {
@@ -119,11 +119,139 @@ class SocketStream extends EventEmitter {
     })
   }
 
+  #createTCPMessage(options = {}) {
+    return new IP4Packet({
+      protocol: TCP,
+      ipFlags: 0,
+      ttl: 64,
+      sourceIP: this.#destinationIP,
+      destinationIP: this.#sourceIP,
+      sourcePort: this.#destinationPort,
+      destinationPort: this.#sourcePort,
+      sequenceNumber: this.#sequenceNumber,
+      acknowledgmentNumber: this.#acknowledgmentNumber,
+      urgentPointer: 0,
+      window: 3000, // todo check
+      options: Buffer.alloc(0),
+      data: Buffer.alloc(0),
+      URG: false,
+      ACK: false,
+      PSH: false,
+      RST: false,
+      SYN: false,
+      FIN: false,
+      ...options,
+    })
+  }
+
+  #createFinAckMessage({ ipv4Packet, tcpMessage }) {
+    return new IP4Packet({
+      protocol: TCP,
+      ipFlags: 0,
+      ttl: 64,
+      sourceIP: ipv4Packet.destinationIP,
+      destinationIP: ipv4Packet.sourceIP,
+      sourcePort: tcpMessage.destinationPort,
+      destinationPort: tcpMessage.sourcePort,
+      sequenceNumber: this.#sequenceNumber,
+      acknowledgmentNumber: this.#acknowledgmentNumber,
+      urgentPointer: 0,
+      options: Buffer.alloc(0),
+      data: Buffer.alloc(0),
+      // URG: false,
+      ACK: true,
+      // PSH: false,
+      // RST: false,
+      // SYN: false,
+      FIN: true,
+      window: tcpMessage.window,
+    })
+  }
+
+  #emitMessage(ipv4Packet) {
+    this.emit('ipv4ToTunnel', ipv4Packet)
+  }
+
+  #finStage({ ipv4Packet, tcpMessage } = {}) {
+    // server init fin
+    if (this.#tcpStage === 'connected') {
+      this.#tcpStage = 'fin_init'
+      this.#emitMessage(this.#createTCPMessage({ FIN: true }))
+      return
+    }
+
+    if (!tcpMessage) {
+      return
+    }
+
+    // wait for ack from client
+    if (
+      this.#tcpStage === 'fin_init' &&
+      tcpMessage.ACK &&
+      tcpMessage.acknowledgmentNumber === this.#sequenceNumber + 1
+    ) {
+      this.#tcpStage = 'fin_ack'
+      this.#sequenceNumber += 1
+      return
+    }
+
+    // wait fin from client
+    if (
+      this.#tcpStage === 'fin_ack' &&
+      tcpMessage.FIN &&
+      this.#acknowledgmentNumber + 1 === tcpMessage.sequenceNumber
+    ) {
+      this.#tcpStage = 'fin_ack'
+      this.#acknowledgmentNumber += 2
+      this.#emitMessage(this.#createTCPMessage({ FIN: true }))
+      console.log('grace close connection by server')
+      this.emit('close')
+      return
+    }
+
+    // client init fin
+    if (this.#tcpStage === 'fin_client') {
+      this.#acknowledgmentNumber += 1
+      this.#emitMessage(this.#createTCPMessage({ ACK: true }))
+      this.#sequenceNumber += 1
+      this.#emitMessage(this.#createTCPMessage({ FIN: true }))
+      this.#tcpStage = 'fin_client2'
+      return
+    }
+
+    if (
+      tcpMessage.ACK &&
+      this.#tcpStage === 'fin_client2' &&
+      tcpMessage.sequenceNumber === this.#acknowledgmentNumber + 1 &&
+      tcpMessage.acknowledgmentNumber === this.#sequenceNumber + 1
+    ) {
+      console.log('grace close connection by client')
+      this.emit('close')
+    }
+  }
+
   /**
    * @param {IPv4Packet} ipv4Packet
    * @param {TCPMessage} tcpMessage
    */
   send({ ipv4Packet, tcpMessage }) {
+    if (this.#tcpStage.includes('fin')) {
+      return this.#finStage({ ipv4Packet, tcpMessage })
+    }
+
+    if (tcpMessage.FIN) {
+      this.#tcpStage = 'fin_client'
+      return this.#finStage({ ipv4Packet, tcpMessage })
+    }
+
+    if (tcpMessage.RST) {
+      console.log('connection reset')
+      this.#tcpStage = 'reset'
+      this.close()
+      this.emit('close')
+      return
+    }
+
     if (tcpMessage.SYN) {
       if (this.#tcpStage !== 'new') {
         return
@@ -134,29 +262,24 @@ class SocketStream extends EventEmitter {
       this.#acknowledgmentNumber = tcpMessage.sequenceNumber + 1
       const ipv4TCPSynAckMessage = this.#createSynAckMessage({ ipv4Packet, tcpMessage })
       this.emit('ipv4ToTunnel', ipv4TCPSynAckMessage)
-      console.log(`${this.#destinationIP} syn ack`)
+      // console.log(`${this.#destinationIP} syn ack`)
       return
-    }
+    } // return
 
     if (tcpMessage.ACK && this.#tcpStage === 'syn') {
       this.#tcpStage = 'established'
-      console.log(`tcp socket ${this.#destinationIP} connection established`)
+      // console.log(`tcp socket ${this.#destinationIP} connection established`)
       this.#connect()
 
       this.#acknowledgmentNumber = tcpMessage.sequenceNumber
       this.#sequenceNumber = tcpMessage.acknowledgmentNumber // todo check
       return
-    }
-
-    if (tcpMessage.FIN) {
-      // todo
-      return
-    }
+    } // return
 
     if (tcpMessage.ACK && tcpMessage.data.length === 0) {
-      console.log('skip ack message from client')
+      // console.log('skip ack message from client')
       return
-    }
+    } // return
 
     if (tcpMessage.ACK) {
       this.#packetDeque.push(tcpMessage)
@@ -205,6 +328,7 @@ class SocketStream extends EventEmitter {
       console.log('socket is not connected')
       return
     }
+
     if (!this.#netSocket?.writable) {
       console.log('socket is not writable')
       return
@@ -213,7 +337,6 @@ class SocketStream extends EventEmitter {
     while (this.#packetDeque.size) {
       const packet = this.#packetDeque.shift()
       const data = packet.data
-      console.log(`write to socket ${data.length}`)
       if (data.length) {
         this.#netSocket.write(data)
       }
@@ -222,52 +345,39 @@ class SocketStream extends EventEmitter {
 
   #connect() {
     if (this.#socketStage !== 'new') {
-      console.log('socket is not new')
+      console.error('socket is not new')
       return
     }
 
-    console.log('try to connect')
     this.#socketStage = 'connecting'
     this.#connectionTimeout = setTimeout(this.close.bind(this), SOCKET_CONNECTION_TIMEOUT)
 
-  #connectPromiseHandler(resolve, reject) {
-    this.#connectionTimeout = setTimeout(reject, 30000, new Error('Cannot connect to target'))
-    console.log(`try to connect ${this.#destinationIP.toString()}:${this.#destinationPort}`)
-    this.#netSocket = net.connect(
-      { port: this.#destinationPort, host: this.#destinationIP.toString() },
-      this.#onSocketConnect.bind(this, resolve),
-    )
+    console.log(`connecting: ${this.#destinationIP.toString()}:${this.#destinationPort}`)
+
+    const port = this.#destinationPort
+    const host = this.#destinationIP.toString()
+    this.#netSocket = net.connect({ host, port }, this.#onSocketConnect.bind(this))
     this.#setupListeners()
   }
 
-  #onSocketConnect(resolve) {
-    console.log('tcp socket connected')
+  #onSocketConnect() {
     clearTimeout(this.#connectionTimeout)
     this.#socketStage = 'connected'
     this.#writeDataToSocket()
-    resolve()
   }
 
-  #sendFIN() {}
-
-  // : Closes the TCP connection.
   close() {
-    console.log('close all')
-    this.#netSocket.off('data', this.#onNetSocketReceiveBind)
-    this.#netSocket.off('error', this.#onNetSocketErrorBind)
-    this.#netSocket.off('close', this.#closeBind)
-
-    if (this.#tcpStage === 'connected') {
-      this.#tcpStage = 'fin1'
-      this.#sendFIN()
+    if (this.#netSocket) {
+      this.#netSocket.off('data', this.#onNetSocketReceiveBind)
+      this.#netSocket.off('error', this.#onNetSocketErrorBind)
+      this.#netSocket.off('close', this.#closeBind)
+      this.#netSocket.destroy()
+      this.#netSocket = null
     }
 
-    // this.#netSocket.close()
-    this.#netSocket.destroy()
-    this.#netSocket = null
-
-    this.emit('close')
-    // todo emit ipv4 FIN packet
+    if (this.#tcpStage === 'connected') {
+      this.#finStage()
+    }
   }
 }
 
