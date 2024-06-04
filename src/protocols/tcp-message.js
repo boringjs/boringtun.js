@@ -212,6 +212,9 @@ class TCPMessage {
     return buffer
   }
 
+  /**
+   * @return {Buffer}
+   */
   get data() {
     return this.#data
   }
