@@ -180,6 +180,7 @@ class IPLayer extends EventEmitter {
       this.#tcpConnections.set(hash, socketStream)
 
       socketStream.on('ipv4ToTunnel', this.#onSendToTunnel.bind(this))
+      socketStream.once('close', this.#tcpConnections.delete.bind(this.#tcpConnections, hash))
     }
 
     return this.#tcpConnections.get(hash)
