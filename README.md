@@ -37,12 +37,12 @@ new Wireguard({
   privateKey: '3RLqvLwIYch6efW7iK7lywzFnZQfSzblDTvRwJ7CAbA=',
   // publicKey: 'PhDFug7ZouGnrWuVFW9ez41OwEhgLNmyi9/CEnHRlFg=',
   listenPort: 51820,
-  ip: '10.8.0.1',
+  address: '10.8.0.1',
 }).addPeer({
     // privateKey: '/2iZCtOrderkA2hkuUy4E1q7Py9qIGiFytTd/ivXZ4E=',
     publicKey: '3g5U/6myr9DZf/HkNuwSKR+h1lcOJQbnAQfjrZ4q5xg=',
     keepAlive: 25,
-    ip: '10.8.0.2',
+    allowedIPs: '10.8.0.2/32',
   })
   .listen()
 ```
