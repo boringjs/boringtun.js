@@ -13,12 +13,16 @@ class IPLayer extends EventEmitter {
   #index = 0
   #udpProxySocket = dgram.createSocket('udp4')
   #dnsRequestMap = new Map()
+  #logLevel
+  #log
 
-  constructor() {
+  constructor({ logLevel = 1, log = console.log } = {}) {
     super()
 
     this.#udpConnectionTimeout = setInterval(this.cleanUDPConnections.bind(this), 3000)
     this.#udpProxySocket.on('message', this.#onReceiveUDPMessage.bind(this))
+    this.#logLevel = logLevel
+    this.#log = log
   }
 
   cleanUDPConnections() {
@@ -118,13 +122,18 @@ class IPLayer extends EventEmitter {
     }
   }
 
-  receivePacket(ipv4Packet) {
+  receivePacket(ipv4Packet, data) {
     if (ipv4Packet.protocol === UDP) {
       return this.#receiveUDPPacket(ipv4Packet)
     }
 
     if (ipv4Packet.protocol === TCP) {
-      return this.#receiveTCPPacket(ipv4Packet)
+      const tcpMessage = ipv4Packet.getTCPMessage()
+
+      if (this.#logLevel > 3) {
+        console.log(`     tcp ${tcpMessage.destinationPort}: ${data.toString('hex')}`)
+      }
+      return this.#receiveTCPPacket(ipv4Packet, tcpMessage)
     }
 
     // console.log(`unknown protocol ${ipv4Packet.protocolNum}`, ipv4Packet.payload.toString('hex'))
@@ -146,8 +155,7 @@ class IPLayer extends EventEmitter {
     this.#udpProxySocket.send(udp.data, udp.destinationPort, udp.destinationIP.toString())
   }
 
-  #receiveTCPPacket(ipv4Packet) {
-    const tcpMessage = ipv4Packet.getTCPMessage()
+  #receiveTCPPacket(ipv4Packet, tcpMessage) {
     const { sourceIP, destinationIP } = ipv4Packet
     const { sourcePort, destinationPort } = tcpMessage
 

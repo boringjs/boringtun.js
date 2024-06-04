@@ -7,7 +7,7 @@ const IP4Address = require('./protocols/ip4-address.js')
 const IPv4Packet = require('./protocols/ip4-packet.js')
 
 class Wireguard extends EventEmitter {
-  #ipLayer = new IPLayer()
+  #ipLayer = /** @type{IPLayer} */ null
   #privateKey = ''
   #publicKey = ''
   #listenPort = 0
@@ -36,6 +36,7 @@ class Wireguard extends EventEmitter {
     this.#createServerListeners()
     this.#logLevel = logLevel
     this.#log = log
+    this.#ipLayer = new IPLayer({ log, logLevel })
     this.#ipLayer.on('ipv4ToTunnel', this.#onMessageFromIPLayer.bind(this))
   }
 
@@ -123,14 +124,16 @@ class Wireguard extends EventEmitter {
     const peer = this.#route(ipv4Packet.destinationIP)
     if (peer) {
       if (this.#logLevel > 1) {
-        console.log(`back to peer ${peer.allowedIPs} ${ipv4Packet.destinationIP}`)
+        // console.log(`back to peer ${peer.allowedIPs} ${ipv4Packet.destinationIP}`)
       }
       return peer.write(ipv4Packet.toBuffer())
     }
+
     if (this.#logLevel > 1) {
       console.log(`goto tcp layer -> ${ipv4Packet.destinationIP}`)
     }
-    this.#ipLayer.receivePacket(ipv4Packet)
+
+    this.#ipLayer.receivePacket(ipv4Packet, data)
   }
 
   /**
