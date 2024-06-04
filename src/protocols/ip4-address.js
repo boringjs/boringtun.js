@@ -1,6 +1,6 @@
 class IP4Address {
   #ipBuffer = Buffer.alloc(4)
-  #mask = 32
+  #mask = Buffer.from([0xff, 0xff, 0xff, 0xff])
 
   /**
    * @param {Buffer|number|string|IP4Address} init
@@ -31,7 +31,19 @@ class IP4Address {
       const tmp = ip.split('.').map((a) => parseInt(a, 10) % 256)
 
       if (mask) {
-        this.#mask = parseInt(mask)
+        const maskNum = parseInt(mask)
+        if (Number.isNaN(maskNum)) {
+          throw new TypeError('Invalid type of mask')
+        }
+        if (maskNum < 0 || maskNum > 32) {
+          throw new TypeError('Invalid mask value')
+        }
+
+        this.#mask = Buffer.from([0, 0, 0, 0])
+        for (let i = 0; i < maskNum; i++) {
+          const byte = (i - (i % 8)) / 8
+          this.#mask[byte] += 1 << i % 8
+        }
       }
 
       this.#ipBuffer[0] = tmp[0]
@@ -57,13 +69,10 @@ class IP4Address {
   match(ip) {
     const ipBuffer = (ip instanceof IP4Address ? ip : new IP4Address(ip)).toBuffer()
 
-    for (let i = 0; i < this.#mask; i++) {
-      const byte = (i - (i % 8)) / 8
-      const shift = 7 - (i % 8)
-      const mask = this.#ipBuffer[byte]
-      const value = ipBuffer[byte]
-      const test = ((1 << shift) & mask) === ((1 << shift) & value)
-      if (!test) {
+    for (let i = 0; i < this.#mask.length; i++) {
+      const byte1 = this.#ipBuffer[i] & this.#mask[i]
+      const byte2 = ipBuffer[i] & this.#mask[i]
+      if (byte1 != byte2) {
         return false
       }
     }
