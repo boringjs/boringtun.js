@@ -125,6 +125,10 @@ class Peer extends EventEmitter {
   forceHandshake() {
     // todo force handshake
   }
+
+  getStat() {
+    // todo native get stat
+  }
 }
 
 module.exports = Peer
