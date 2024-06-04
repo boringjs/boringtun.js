@@ -4,6 +4,8 @@ const Deque = require('./../utils/deque.js')
 const { TCP } = require('./constants.js')
 const IP4Packet = require('./ip4-packet.js')
 
+const SOCKET_CONNECTION_TIMEOUT = 30000
+
 class SocketStream extends EventEmitter {
   #sourceIP = null // : String
   #destinationIP = null // : String
@@ -226,8 +228,7 @@ class SocketStream extends EventEmitter {
 
     console.log('try to connect')
     this.#socketStage = 'connecting'
-    return new Promise(this.#connectPromiseHandler.bind(this))
-  }
+    this.#connectionTimeout = setTimeout(this.close.bind(this), SOCKET_CONNECTION_TIMEOUT)
 
   #connectPromiseHandler(resolve, reject) {
     this.#connectionTimeout = setTimeout(reject, 30000, new Error('Cannot connect to target'))
