@@ -84,7 +84,7 @@ class SocketStream extends EventEmitter {
         window: 2052,
       })
 
-      this.emit('ipv4ToTunnel', ipPacket)
+      this.emit('tcpMessage', ipPacket)
 
       this.#sequenceNumber += subData.length
       offset = delta
@@ -169,7 +169,7 @@ class SocketStream extends EventEmitter {
   }
 
   #emitMessage(ipv4Packet) {
-    this.emit('ipv4ToTunnel', ipv4Packet)
+    this.emit('tcpMessage', ipv4Packet)
   }
 
   #finStage({ ipv4Packet, tcpMessage } = {}) {
@@ -261,7 +261,7 @@ class SocketStream extends EventEmitter {
       this.#sequenceNumber = this.#getRandomSequenceNumber()
       this.#acknowledgmentNumber = tcpMessage.sequenceNumber + 1
       const ipv4TCPSynAckMessage = this.#createSynAckMessage({ ipv4Packet, tcpMessage })
-      this.emit('ipv4ToTunnel', ipv4TCPSynAckMessage)
+      this.emit('tcpMessage', ipv4TCPSynAckMessage)
       // console.log(`${this.#destinationIP} syn ack`)
       return
     } // return
@@ -285,7 +285,7 @@ class SocketStream extends EventEmitter {
       this.#packetDeque.push(tcpMessage)
       this.#acknowledgmentNumber += tcpMessage.data.length
       const respond = this.#createRespondThatReceivedFiles({ ipv4Packet, tcpMessage })
-      this.emit('ipv4ToTunnel', respond)
+      this.emit('tcpMessage', respond)
     } else {
       console.log('strange socket!!!')
     }

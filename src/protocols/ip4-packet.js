@@ -295,6 +295,9 @@ class IP4Packet {
     return this.#payload // todo copy
   }
 
+  /**
+   * @return {UDPMessage|null}
+   */
   getUDPMessage() {
     if (this.#protocolName !== 'UDP') {
       return null

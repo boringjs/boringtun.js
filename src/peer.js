@@ -142,6 +142,9 @@ class Peer extends EventEmitter {
   }
 
   forceHandshake() {
+    if (!this.endpoint) {
+      return
+    }
     // todo force handshake
   }
 

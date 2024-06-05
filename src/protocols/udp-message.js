@@ -1,4 +1,5 @@
 const { PROTOCOLS } = require('./constants.js')
+const DNSMessage = require('./dns-message.js')
 
 /*
  https://www.ietf.org/rfc/rfc768.txt
@@ -209,6 +210,14 @@ class UDPMessage {
     }
 
     return (this.#data[2] & 0x80) === 1
+  }
+
+  getDNSMessage() {
+    if(this.isDnsRequest() || this.isDnsResponse()){
+      return new DNSMessage(this.#data)
+    }
+
+    return null
   }
 }
 

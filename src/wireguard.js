@@ -13,7 +13,7 @@ class Wireguard extends EventEmitter {
   #listenPort = 0
   #server /** @type {Socket}*/ = dgram.createSocket('udp4')
   #address = new IP4Address(0)
-  #peers = /** @type{Set<Peer>}*/ new Set()
+  #peers = /** @type{Peer[]}*/ []
   #mapEndpointIpToPeer = /** @type{Map<string,Peer>} */ new Map()
   #index = 1
   #logLevel = 0
@@ -82,7 +82,7 @@ class Wireguard extends EventEmitter {
       endpointAddress,
     })
 
-    this.#peers.add(peer)
+    this.#peers.push(peer)
 
     if (peer.endpoint) {
       this.#mapEndpointIpToPeer.set(endpoint, peer)
@@ -100,13 +100,7 @@ class Wireguard extends EventEmitter {
   }
 
   #route(ip) {
-    for (const peer of this.#peers) {
-      if (peer.match(ip)) {
-        return peer
-      }
-    }
-
-    return null
+    return this.#peers.find((peer) => peer.match(ip))
   }
 
   #onMessageFromIPLayer(ipv4Packet) {
@@ -136,7 +130,7 @@ class Wireguard extends EventEmitter {
       console.log(`goto tcp layer -> ${ipv4Packet.destinationIP}`)
     }
 
-    this.#ipLayer.receivePacket(ipv4Packet, data)
+    this.#ipLayer.send(ipv4Packet)
   }
 
   /**
@@ -155,11 +149,7 @@ class Wireguard extends EventEmitter {
       return
     }
 
-    for (const peer of this.#peers) {
-      if (peer.read(message, address, port)) {
-        return
-      }
-    }
+    this.#peers.some((peer) => peer.read(message, address, port))
   }
 
   /**
@@ -179,11 +169,7 @@ class Wireguard extends EventEmitter {
       console.log('Start working')
     }
 
-    for (const peer of this.#peers) {
-      if (peer.endpoint) {
-        peer.forceHandshake()
-      }
-    }
+    this.#peers.forEach((peer) => peer.forceHandshake())
   }
 
   getStat() {}

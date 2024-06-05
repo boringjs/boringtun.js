@@ -1,201 +1,74 @@
 const { EventEmitter } = require('events')
-const SocketStream = require('./socket-stream.js')
-const IPv4Packet = require('./ip4-packet.js')
-const UDPClient = require('./udp-client.js')
-const IP4Packet = require('./ip4-packet.js')
+// const SocketStream = require('./socket-stream.js')
+// const UDPClient = require('./udp-client.js')
+// const IP4Packet = require('./ip4-packet.js')
+const DNSResolver = require('./dns-resolver.js')
+const UDPStream = require('./udp-stream.js')
+const TCPContainer = require('./tcp-container.js')
 const { TCP, UDP } = require('./constants.js')
-const dgram = require('dgram')
 
 class IPLayer extends EventEmitter {
-  #tcpConnections = new Map() // Map (maps connection identifiers to SocketStream instances)
+  #dnsResolver = /** @type{DNSResolver}*/ null
+  #udpStream = /** @type{UDPStream}*/ null
+  #tcpContainer = /** @type{TCPContainer} */ null
+
   #udpClients = new Map() // todo gc
   #udpConnectionTimeout = null
   #index = 0
-  #udpProxySocket = dgram.createSocket('udp4')
-  #dnsRequestMap = new Map()
+
   #logLevel
   #log
 
   constructor({ logLevel = 1, log = console.log } = {}) {
     super()
 
-    this.#udpConnectionTimeout = setInterval(this.cleanUDPConnections.bind(this), 3000)
-    this.#udpProxySocket.on('message', this.#onReceiveUDPMessage.bind(this))
     this.#logLevel = logLevel
     this.#log = log
+
+    this.#dnsResolver = new DNSResolver({ log, logLevel })
+    this.#udpStream = new UDPStream({ log, logLevel })
+    this.#tcpContainer = new TCPContainer({ log, logLevel })
+    this.#dnsResolver.on('DNSResponse', this.#emitIPv4Packet.bind(this))
+    this.#udpStream.on('udpMessage', this.#emitIPv4Packet.bind(this))
+    this.#tcpContainer.on('tcpMessage', this.#emitIPv4Packet.bind(this))
   }
 
-  cleanUDPConnections() {
-    // for(const [])
-    // console.log('size: ', this.#udpClients.size)
-    // for (const [hash, udpConnection] of this.#udpClients) {
-    //   if (Date.now() - this.lastUsage > 5000) {
-    //     udpConnection.close()
-    //     this.#udpConnections.delete(hash)
-    //   }
-    // }
+  #emitIPv4Packet(packet) {
+    this.emit('ipv4ToTunnel', packet)
   }
 
   close() {
     clearInterval(this.#udpConnectionTimeout)
-  }
-
-  #getHash({ protocol, ip, port }) {
-    return `${protocol}:${ip}:${port}`
-  }
-
-  #setUDPClient(udp) {
-    const { sourceIP, sourcePort, destinationIP, destinationPort } = udp
-    const targetHash = this.#getHash({ protocol: UDP, port: destinationPort, ip: destinationIP })
-    if (!this.#udpClients.has(targetHash)) {
-      this.#udpClients.set(targetHash, new Map())
-    }
-
-    const clients = this.#udpClients.get(targetHash)
-    const clientHash = this.#getHash({ protocol: UDP, port: sourcePort, ip: sourceIP })
-
-    if (clients.has(clientHash)) {
-      return
-    }
-
-    clients.set(clientHash, new UDPClient({ sourceIP, sourcePort }))
-  }
-
-  #getUDPClients({ message, destinationIP, destinationPort }) {
-    const isDNS = message.length >= 12 && destinationPort === 53 && (message[2] & 0x80) === 1
-    const protocol = isDNS ? 'DNS' : UDP
-    const hash = isDNS ? message.readUInt16BE(0) : 0
-    const targetHash = this.#getHash({ hash, protocol, port: destinationPort, ip: destinationIP })
-    if (!this.#udpClients.has(targetHash)) {
-      return new Map()
-    }
-
-    return this.#udpClients.get(targetHash)
+    this.#dnsResolver.close()
+    this.#udpStream.close()
+    this.#tcpContainer.close()
   }
 
   #idIncrement() {
     return this.#index++
   }
 
-  #onReceiveUDPMessage(message, { address, port }) {
-    const isDNS = message.length >= 12 && port === 53 && (message[2] & 0x80) === 0x80
-    const packets = []
+  /**
+   * @param {IP4Packet}ip4Packet
+   */
+  send(ip4Packet) {
+    if (ip4Packet.protocol === UDP) {
+      const udpMessage = ip4Packet.getUDPMessage()
 
-    if (isDNS) {
-      const transactionId = `${address}${port}${message.readUInt16BE(0)}`
-      if (this.#dnsRequestMap.has(transactionId)) {
-        const client = this.#dnsRequestMap.get(transactionId)
-        packets.push(
-          new IP4Packet({
-            protocol: UDP,
-            sourceIP: address,
-            sourcePort: port,
-            destinationIP: client.sourceIP,
-            destinationPort: client.sourcePort,
-            ttl: 64,
-            identification: 0, // this.#idIncrement(),
-            udpData: message,
-          }),
-        )
+      if (udpMessage.isDnsRequest()) {
+        return this.#dnsResolver.request(ip4Packet, udpMessage)
       }
-    } else {
-      const clients = this.#getUDPClients({ message, destinationIP: address, destinationPort: port })
 
-      for (const [, client] of clients) {
-        packets.push(
-          new IP4Packet({
-            protocol: UDP,
-            sourceIP: address,
-            sourcePort: port,
-            destinationIP: client.sourceIP,
-            destinationPort: client.sourcePort,
-            ttl: 64,
-            identification: 0, // this.#idIncrement(),
-            udpData: message,
-          }),
-        )
-      }
+      return this.#udpStream.send(ip4Packet, udpMessage)
     }
 
-    for (const packet of packets) {
-      this.emit('ipv4ToTunnel', packet)
-    }
-  }
+    if (ip4Packet.protocol === TCP) {
+      const tcpMessage = ip4Packet.getTCPMessage()
 
-  receivePacket(ipv4Packet, data) {
-    if (ipv4Packet.protocol === UDP) {
-      return this.#receiveUDPPacket(ipv4Packet)
-    }
-
-    if (ipv4Packet.protocol === TCP) {
-      const tcpMessage = ipv4Packet.getTCPMessage()
-
-      if (this.#logLevel > 3) {
-        console.log(`     tcp ${tcpMessage.destinationPort}: ${data.toString('hex')}`)
-      }
-      return this.#receiveTCPPacket(ipv4Packet, tcpMessage)
+      return this.#tcpContainer.send(ip4Packet, tcpMessage)
     }
 
     // console.log(`unknown protocol ${ipv4Packet.protocolNum}`, ipv4Packet.payload.toString('hex'))
-  }
-
-  #receiveUDPPacket(ipv4Packet) {
-    const udp = ipv4Packet.getUDPMessage()
-    const { sourceIP, destinationIP } = ipv4Packet
-    const { sourcePort, destinationPort } = udp
-    console.log(`udp: ${sourceIP}:${sourcePort} -> ${destinationIP}:${destinationPort}`)
-
-    if (udp.isDnsRequest()) {
-      const transactionId = `${destinationIP}${destinationPort}${udp.data.readUInt16BE(0)}`
-      this.#dnsRequestMap.set(transactionId, new UDPClient({ sourcePort, sourceIP }))
-    } else {
-      this.#setUDPClient(udp)
-    }
-
-    this.#udpProxySocket.send(udp.data, udp.destinationPort, udp.destinationIP.toString())
-  }
-
-  #receiveTCPPacket(ipv4Packet, tcpMessage) {
-    const { sourceIP, destinationIP } = ipv4Packet
-    const { sourcePort, destinationPort } = tcpMessage
-
-    const socketStream = this.#getSocketStream({ sourceIP, destinationIP, sourcePort, destinationPort })
-
-    socketStream.send({ ipv4Packet, tcpMessage })
-  }
-
-  #getSocketStreamHash({ sourceIP, destinationIP, sourcePort, destinationPort }) {
-    return `${TCP}:${sourceIP}:${sourcePort}:${destinationIP}:${destinationPort}`
-  }
-
-  /**
-   * @param {IP4Address} sourceIP
-   * @param {IP4Address} destinationIP
-   * @param {number} sourcePort
-   * @param {number} destinationPort
-   * @return {SocketStream}
-   */
-  #getSocketStream({ sourceIP, destinationIP, sourcePort, destinationPort }) {
-    const hash = this.#getSocketStreamHash({
-      sourceIP,
-      sourcePort,
-      destinationIP,
-      destinationPort,
-    })
-
-    if (!this.#tcpConnections.has(hash)) {
-      const socketStream = new SocketStream({ sourceIP, destinationIP, sourcePort, destinationPort })
-      this.#tcpConnections.set(hash, socketStream)
-
-      socketStream.on('ipv4ToTunnel', this.#onSendToTunnel.bind(this))
-      socketStream.once('close', this.#tcpConnections.delete.bind(this.#tcpConnections, hash))
-    }
-
-    return this.#tcpConnections.get(hash)
-  }
-
-  #onSendToTunnel(ipv4Packet) {
-    this.emit('ipv4ToTunnel', ipv4Packet)
   }
 }
 
