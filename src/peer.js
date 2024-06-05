@@ -68,6 +68,9 @@ class Peer extends EventEmitter {
     }
 
     if (type === WireguardTunnelWrapper.WRITE_TO_NETWORK) {
+      if (!this.endpoint) {
+        return
+      }
       const address = this.#endpointAddress.toString()
       const port = this.#endpointPort
 
@@ -93,8 +96,24 @@ class Peer extends EventEmitter {
     throw new Error('Unknown operation')
   }
 
-  read(msg) {
-    return this.routing(this.#tunnel.read(msg))
+  read(msg, address, port) {
+    const result = this.#tunnel.read(msg)
+
+    const isHandshake = msg.readUInt32LE(0) === 1 && msg.length > 90
+
+    const isGood = result.type !== WireguardTunnelWrapper.WIREGUARD_ERROR
+
+    if (address && port && isHandshake) {
+      const oldEndpoint = this.endpoint
+
+      this.endpointAddress = address
+      this.endpointPort = port
+      this.emit('updateEndpoint', oldEndpoint)
+    }
+
+    this.routing(result)
+
+    return isGood
   }
 
   write(msg) {

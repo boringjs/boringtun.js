@@ -61,6 +61,14 @@ class Wireguard extends EventEmitter {
     return this.#listenPort
   }
 
+  #updatePeerEndpoint(peer, oldEndpoint) {
+    if (oldEndpoint) {
+      this.#mapEndpointIpToPeer.delete(oldEndpoint)
+    }
+
+    this.#mapEndpointIpToPeer.set(peer.endpoint, peer)
+  }
+
   addPeer({ publicKey, allowedIPs, keepAlive = 25, endpoint }) {
     const [endpointAddress, endpointPort] = (endpoint || '').split(':')
 
@@ -80,14 +88,9 @@ class Wireguard extends EventEmitter {
       this.#mapEndpointIpToPeer.set(endpoint, peer)
     }
 
-    peer.on('writeToTunnel', ({ address, port, data }) => {
-      // console.log(`tunnel ${data.length} -> ${address}:${port}`)
-      this.#onWriteToTunnel({ address, port, data })
-    })
-
-    peer.on('writeToIp4Layer', (data) => {
-      this.#onWriteToIPv4(data)
-    })
+    peer.on('writeToTunnel', this.#onWriteToTunnel.bind(this))
+    peer.on('writeToIp4Layer', this.#onWriteToIPv4.bind(this))
+    peer.on('updateEndpoint', this.#updatePeerEndpoint.bind(this, peer))
 
     return this
   }
@@ -148,27 +151,14 @@ class Wireguard extends EventEmitter {
     const endpoint = `${address}:${port}`
 
     if (this.#mapEndpointIpToPeer.has(endpoint)) {
-      return this.#mapEndpointIpToPeer.get(endpoint).read(message)
-    }
-
-    if (message.readUInt32LE(0) !== 1 || message.length < 32) {
-      // not handshake
+      this.#mapEndpointIpToPeer.get(endpoint).read(message)
       return
     }
 
     for (const peer of this.#peers) {
-      const oldEndpoint = peer.endpoint
-      if (!peer.readHandshake({ message, address, port })) {
-        console.log('error with handshake')
-        continue
+      if (peer.read(message, address, port)) {
+        return
       }
-
-      if (oldEndpoint) {
-        this.#mapEndpointIpToPeer.delete(oldEndpoint)
-      }
-
-      this.#mapEndpointIpToPeer.set(peer.endpoint, peer)
-      return
     }
   }
 
