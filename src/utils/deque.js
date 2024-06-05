@@ -22,6 +22,7 @@ class Deque {
   }
 
   unshift(value) {
+    this.#normalize()
     this.#frontStack.push(value)
   }
 
