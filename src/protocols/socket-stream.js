@@ -1,5 +1,5 @@
-const net = require('net')
 const { EventEmitter } = require('events')
+const net = require('net')
 const Deque = require('./../utils/deque.js')
 const { TCP } = require('./constants.js')
 const IP4Packet = require('./ip4-packet.js')

@@ -103,6 +103,12 @@ class Wireguard extends EventEmitter {
     return this.#peers.find((peer) => peer.match(ip))
   }
 
+  close() {
+    // todo: close tcp layer
+    // todo: stop server
+    // todo: stop peers
+  }
+
   #onMessageFromIPLayer(ipv4Packet) {
     const peer = this.#route(ipv4Packet.destinationIP)
     if (!peer) {
@@ -120,9 +126,6 @@ class Wireguard extends EventEmitter {
     const ipv4Packet = new IPv4Packet(data)
     const peer = this.#route(ipv4Packet.destinationIP)
     if (peer) {
-      if (this.#logLevel > 1) {
-        // console.log(`back to peer ${peer.allowedIPs} ${ipv4Packet.destinationIP}`)
-      }
       return peer.write(ipv4Packet.toBuffer())
     }
 
@@ -138,10 +141,6 @@ class Wireguard extends EventEmitter {
    * @param {{address: string, port: number}}
    */
   #onMessage(message, { address, port }) {
-    if (this.#logLevel > 2) {
-      // console.log(`message from ${address}`)
-    }
-
     const endpoint = `${address}:${port}`
 
     if (this.#mapEndpointIpToPeer.has(endpoint)) {
@@ -152,9 +151,6 @@ class Wireguard extends EventEmitter {
     this.#peers.some((peer) => peer.read(message, address, port))
   }
 
-  /**
-   * @param {Buffer} data
-   */
   #onError(data) {
     console.error(data) // todo
   }
@@ -172,7 +168,9 @@ class Wireguard extends EventEmitter {
     this.#peers.forEach((peer) => peer.forceHandshake())
   }
 
-  getStat() {}
+  getStat() {
+    // todo get stat
+  }
 }
 
 module.exports = Wireguard

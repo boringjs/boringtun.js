@@ -151,6 +151,10 @@ class Peer extends EventEmitter {
   getStat() {
     // todo native get stat
   }
+
+  close() {
+    // todo
+  }
 }
 
 module.exports = Peer

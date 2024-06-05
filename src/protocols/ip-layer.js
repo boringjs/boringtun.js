@@ -1,7 +1,4 @@
 const { EventEmitter } = require('events')
-// const SocketStream = require('./socket-stream.js')
-// const UDPClient = require('./udp-client.js')
-// const IP4Packet = require('./ip4-packet.js')
 const DNSResolver = require('./dns-resolver.js')
 const UDPStream = require('./udp-stream.js')
 const TCPContainer = require('./tcp-container.js')
@@ -11,10 +8,6 @@ class IPLayer extends EventEmitter {
   #dnsResolver = /** @type{DNSResolver}*/ null
   #udpStream = /** @type{UDPStream}*/ null
   #tcpContainer = /** @type{TCPContainer} */ null
-
-  #udpClients = new Map() // todo gc
-  #udpConnectionTimeout = null
-  #index = 0
 
   #logLevel
   #log
@@ -38,14 +31,9 @@ class IPLayer extends EventEmitter {
   }
 
   close() {
-    clearInterval(this.#udpConnectionTimeout)
     this.#dnsResolver.close()
     this.#udpStream.close()
     this.#tcpContainer.close()
-  }
-
-  #idIncrement() {
-    return this.#index++
   }
 
   /**

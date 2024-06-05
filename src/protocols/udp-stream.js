@@ -1,4 +1,3 @@
-const { UDP } = require('./constants.js')
 const { EventEmitter } = require('events')
 const UDPClient = require('./udp-client.js')
 
