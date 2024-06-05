@@ -74,7 +74,7 @@ class Wireguard extends EventEmitter {
       endpointAddress,
     })
 
-    this.#peers.add(publicKey, peer)
+    this.#peers.add(peer)
 
     if (peer.endpoint) {
       this.#mapEndpointIpToPeer.set(endpoint, peer)
