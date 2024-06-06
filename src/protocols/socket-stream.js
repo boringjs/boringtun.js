@@ -5,7 +5,7 @@ const { TCP } = require('./constants.js')
 const IP4Packet = require('./ip4-packet.js')
 
 const SOCKET_CONNECTION_TIMEOUT = 30000
-const DELTA = 1600 // todo rename
+const DELTA = 1000 // todo rename
 
 class SocketStream extends EventEmitter {
   #sourceIP = null // : String
@@ -70,7 +70,7 @@ class SocketStream extends EventEmitter {
       sequenceNumber: this.#sequenceNumber,
       acknowledgmentNumber: this.#acknowledgmentNumber,
       urgentPointer: 0,
-      window: 3000, // todo check
+      window: 2000, // todo check
       options: Buffer.alloc(0),
       data: Buffer.alloc(0),
       URG: false,
