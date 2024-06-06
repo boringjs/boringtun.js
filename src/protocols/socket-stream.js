@@ -24,6 +24,14 @@ class SocketStream extends EventEmitter {
   #packetDeque = new Deque()
   #delta = 0
   #id = 0
+  /**
+   * @param {Object} options
+   * @param {string} options.host
+   * @param {number} options.port
+   * @param {Function} callback
+   * @returns {net.Socket}
+   */
+  #getSocket
 
   /**
    * @param {object} options
@@ -32,13 +40,21 @@ class SocketStream extends EventEmitter {
    * @param {number} options.sourcePort
    * @param {number} options.destinationPort
    */
-  constructor({ sourceIP, destinationIP, sourcePort, destinationPort, delta = DELTA }) {
+  constructor({
+    sourceIP,
+    destinationIP,
+    sourcePort,
+    destinationPort,
+    delta = DELTA,
+    getSocket = (options, callback) => net.connect(options, callback),
+  }) {
     super()
     this.#sourceIP = sourceIP
     this.#destinationIP = destinationIP
     this.#sourcePort = sourcePort
     this.#destinationPort = destinationPort
     this.#delta = delta
+    this.#getSocket = getSocket
   }
 
   #createTCP(options = {}) {
@@ -48,6 +64,7 @@ class SocketStream extends EventEmitter {
       ttl: 64,
       sourceIP: this.#destinationIP,
       destinationIP: this.#sourceIP,
+      identification: this.#id++,
       sourcePort: this.#destinationPort,
       destinationPort: this.#sourcePort,
       sequenceNumber: this.#sequenceNumber,
@@ -64,12 +81,6 @@ class SocketStream extends EventEmitter {
       FIN: false,
       ...options,
     })
-  }
-
-  #setupListeners() {
-    this.#socket.on('data', (this.#onSocketDataBind = this.#onSocketData.bind(this)))
-    this.#socket.on('error', (this.#onSocketErrorBind = this.#onSocketError.bind(this)))
-    this.#socket.on('close', (this.#closeBind = this.close.bind(this)))
   }
 
   #onSocketError(error) {
@@ -155,7 +166,7 @@ class SocketStream extends EventEmitter {
       this.#acknowledgmentNumber += 1
       this.#emitMessage(this.#createTCP({ ACK: true }))
       this.#sequenceNumber += 1
-      this.#emitMessage(this.#createTCP({ FIN: true }))
+      this.#emitMessage(this.#createTCP({ FIN: true, ACK: true }))
       this.#tcpStage = 'fin_client2'
       return
     }
@@ -163,7 +174,7 @@ class SocketStream extends EventEmitter {
     if (
       tcpMessage.ACK &&
       this.#tcpStage === 'fin_client2' &&
-      tcpMessage.sequenceNumber === this.#acknowledgmentNumber + 1 &&
+      tcpMessage.sequenceNumber === this.#acknowledgmentNumber &&
       tcpMessage.acknowledgmentNumber === this.#sequenceNumber + 1
     ) {
       console.log('grace close connection by client')
@@ -208,22 +219,23 @@ class SocketStream extends EventEmitter {
       const ipv4TCPSynAckMessage = this.#createTCP({ SYN: true, ACK: true })
 
       this.emit('tcpMessage', ipv4TCPSynAckMessage)
-      // console.log(`${this.#destinationIP} syn ack`)
       return
-    } // return
+    }
 
     if (tcpMessage.ACK && this.#tcpStage === 'syn') {
       this.#tcpStage = 'established'
-      // console.log(`tcp socket ${this.#destinationIP} connection established`)
       this.#connect()
 
-      this.#acknowledgmentNumber = tcpMessage.sequenceNumber
-      this.#sequenceNumber = tcpMessage.acknowledgmentNumber // todo check
+      // this is not correct todo refactor
+      this.#acknowledgmentNumber = tcpMessage.sequenceNumber // warning
+      this.#sequenceNumber = tcpMessage.acknowledgmentNumber // warning
       return
     } // return
 
     if (tcpMessage.ACK && tcpMessage.data.length === 0) {
-      // console.log('skip ack message from client')
+      // this is not correct todo refactor
+      this.#acknowledgmentNumber = tcpMessage.sequenceNumber // warning
+      this.#sequenceNumber = tcpMessage.acknowledgmentNumber // warning
       return
     } // return
 
@@ -237,7 +249,7 @@ class SocketStream extends EventEmitter {
       console.log('strange socket!!!')
     }
 
-    if (this.#socketStage === 'connected') {
+    if (this.#socketStage === 'connected' && tcpMessage.PSH) {
       this.#writeDataToSocket()
     }
   }
@@ -262,12 +274,19 @@ class SocketStream extends EventEmitter {
       return
     }
 
+    const bufferArray = []
     while (this.#packetDeque.size) {
       const packet = this.#packetDeque.shift()
-      const data = packet.data
-      if (data.length) {
-        this.#socket.write(data)
+      bufferArray.push(packet.data)
+      if (packet.PSH) {
+        this.#socket.write(Buffer.concat(bufferArray))
+        bufferArray.length = 0
       }
+    }
+
+    if (bufferArray.length) {
+      this.#socket.write(Buffer.concat(bufferArray))
+      bufferArray.length = 0
     }
   }
 
@@ -284,8 +303,10 @@ class SocketStream extends EventEmitter {
 
     const port = this.#destinationPort
     const host = this.#destinationIP.toString()
-    this.#socket = net.connect({ host, port }, this.#onSocketConnect.bind(this))
-    this.#setupListeners()
+    this.#socket = this.#getSocket({ host, port }, this.#onSocketConnect.bind(this))
+    this.#socket.on('data', (this.#onSocketDataBind = this.#onSocketData.bind(this)))
+    this.#socket.on('error', (this.#onSocketErrorBind = this.#onSocketError.bind(this)))
+    this.#socket.on('close', (this.#closeBind = this.close.bind(this)))
   }
 
   #onSocketConnect() {

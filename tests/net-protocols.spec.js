@@ -357,7 +357,8 @@ describe('ipv4 packet', () => {
     // ACK
     socketStream.send(tcp({ ACK: true }))
 
-    const data = 'GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: curl/8.4.0\r\nAccept: */*\r\n\r\n'
+    const data = Buffer.from('GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: curl/8.4.0\r\nAccept: */*\r\n\r\n')
+    sequenceNumber += data.length
     socketStream.send(
       tcp({
         ACK: true,
@@ -369,12 +370,12 @@ describe('ipv4 packet', () => {
     // ACK
     expect(lastMsgs.length).toBe(1)
     expect(lastMsgs[0].ACK).toBeTruthy()
+    expect(lastMsgs[0].acknowledgmentNumber).toBe(sequenceNumber)
     lastMsgs.length = 0
 
     await delay(5)
 
     expect(mockClient.write).toHaveBeenCalledWith(Buffer.from(data))
-    // expect(mockClient.end).toHaveBeenCalled()
 
     const onDataCallback = mockClient.on.mock.calls.find((call) => call[0] === 'data')[1]
 
@@ -394,11 +395,32 @@ describe('ipv4 packet', () => {
 
     acknowledgmentNumber += received.length
 
-    socketStream.send(
-      tcp({
-        ACK: true,
-      }),
-    )
+    socketStream.send(tcp({ ACK: true }))
+
+    expect(lastMsgs.length).toBe(0)
+
+    socketStream.send(tcp({ FIN: true, ACK: true }))
+    expect(lastMsgs.length).toBe(2)
+    expect(lastMsgs[0].FIN).toBeFalsy()
+    expect(lastMsgs[0].ACK).toBeTruthy()
+    expect(lastMsgs[0].acknowledgmentNumber).toBe(sequenceNumber + 1)
+    expect(lastMsgs[0].sequenceNumber).toBe(acknowledgmentNumber)
+
+    expect(lastMsgs[1].FIN).toBeTruthy()
+    expect(lastMsgs[1].ACK).toBeTruthy()
+    expect(lastMsgs[1].sequenceNumber).toBe(acknowledgmentNumber + 1)
+    expect(lastMsgs[1].acknowledgmentNumber).toBe(sequenceNumber + 1)
+
+    lastMsgs.length = 0
+
+    acknowledgmentNumber += 2
+    sequenceNumber += 1
+
+    const close = jest.fn()
+    socketStream.on('close', close)
+
+    socketStream.send(tcp({ ACK: true }))
+    expect(close.mock.calls.length).toBe(1)
 
     // Clean up
     mockConnect.mockRestore()
