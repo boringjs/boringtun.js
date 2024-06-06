@@ -84,8 +84,14 @@ class SocketStream extends EventEmitter {
   }
 
   #onSocketError(error) {
-    console.log(error)
-    // this.emit('error', error)
+    if (error.message.includes('ECONNRESET')) {
+      this.#emitMessage(this.#createTCP({ RST: true }))
+      this.#tcpStage = 'reset'
+      this.close()
+      this.emit('close')
+      return
+    }
+    console.log(`error: "${error.message}" "${error.code}"`, error)
   }
 
   /**
