@@ -2,7 +2,11 @@ const IP4Address = require('../src/protocols/ip4-address.js')
 const IP4Packet = require('../src/protocols/ip4-packet.js')
 const UDPMessage = require('../src/protocols/udp-message.js')
 const TCPMessage = require('../src/protocols/tcp-message.js')
+const SocketStream = require('../src/protocols/socket-stream.js')
 const { TCP } = require('../src/protocols/constants.js')
+
+const net = require('net')
+const delay = (time = 0) => new Promise((resolve) => setTimeout(resolve, time))
 
 describe('IP4Address', () => {
   test('Ipv4 convert string to number', () => {
@@ -275,5 +279,128 @@ describe('ipv4 packet', () => {
     expect(tcpMessage.sequenceNumber).toBe(0x03e28e5b)
     expect(tcpMessage.sourcePort).toBe(62407)
     expect(tcpMessage.destinationPort).toBe(80)
+  })
+
+  test('socket stream behaviour', async () => {
+    const mockClient = {
+      on: jest.fn(),
+      end: jest.fn(),
+      write: jest.fn(),
+      writable: true,
+    }
+
+    const sourceIP = '10.8.0.16'
+    const sourcePort = 50130
+    const destinationIP = '93.184.215.14'
+    const destinationPort = 80
+    let acknowledgmentNumber = 0
+    let sequenceNumber = 80558221
+
+    const mockConnect = jest.spyOn(net, 'connect').mockImplementation((options, callback) => {
+      expect(options.host).toBe(destinationIP)
+      expect(options.port).toBe(destinationPort)
+      delay().then(callback)
+      return mockClient
+    })
+
+    const tcp = (options = {}) =>
+      new IP4Packet({
+        protocol: TCP,
+        ipFlags: 0,
+        ttl: 64,
+        sourceIP,
+        destinationIP,
+        sourcePort,
+        destinationPort,
+        sequenceNumber,
+        acknowledgmentNumber,
+        urgentPointer: 0,
+        window: 3000,
+        options: Buffer.alloc(0),
+        data: Buffer.alloc(0),
+        URG: false,
+        ACK: false,
+        PSH: false,
+        RST: false,
+        SYN: false,
+        FIN: false,
+        ...options,
+      })
+
+    let lastMsgs = /** @type{TCPMessage[]}*/ []
+    const socketStream = new SocketStream({
+      sourceIP,
+      sourcePort,
+      destinationPort,
+      destinationIP,
+      delta: 1000,
+    })
+
+    socketStream.on('tcpMessage', (msg) => {
+      expect(msg.protocol).toBe(TCP)
+      lastMsgs.push(msg.getTCPMessage())
+    })
+
+    // SYN
+    socketStream.send(tcp({ SYN: true }))
+    expect(lastMsgs.length).toBe(1)
+
+    expect(lastMsgs[0].SYN).toBeTruthy()
+    expect(lastMsgs[0].ACK).toBeTruthy()
+    expect(lastMsgs[0].acknowledgmentNumber).toBe(sequenceNumber + 1)
+    expect(typeof lastMsgs[0].sequenceNumber).toBe('number')
+    expect(lastMsgs[0].sequenceNumber).toBeGreaterThan(0)
+    acknowledgmentNumber = lastMsgs[0].sequenceNumber + 1
+    sequenceNumber += 1
+    lastMsgs.length = 0
+
+    // ACK
+    socketStream.send(tcp({ ACK: true }))
+
+    const data = 'GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: curl/8.4.0\r\nAccept: */*\r\n\r\n'
+    socketStream.send(
+      tcp({
+        ACK: true,
+        PSH: true,
+        data,
+      }),
+    )
+
+    // ACK
+    expect(lastMsgs.length).toBe(1)
+    expect(lastMsgs[0].ACK).toBeTruthy()
+    lastMsgs.length = 0
+
+    await delay(5)
+
+    expect(mockClient.write).toHaveBeenCalledWith(Buffer.from(data))
+    // expect(mockClient.end).toHaveBeenCalled()
+
+    const onDataCallback = mockClient.on.mock.calls.find((call) => call[0] === 'data')[1]
+
+    const responseData = Buffer.from(Array.from({ length: 1600 }).map((_, i) => i % 256))
+
+    onDataCallback(responseData)
+
+    expect(lastMsgs.length).toBe(2)
+    expect(lastMsgs[0].ACK).toBeTruthy()
+    expect(lastMsgs[1].ACK).toBeTruthy()
+    expect(lastMsgs[1].PSH).toBeTruthy()
+
+    const received = Buffer.concat(lastMsgs.map((t) => t.data))
+    expect(received).toEqual(responseData)
+
+    lastMsgs.length = 0
+
+    acknowledgmentNumber += received.length
+
+    socketStream.send(
+      tcp({
+        ACK: true,
+      }),
+    )
+
+    // Clean up
+    mockConnect.mockRestore()
   })
 })
