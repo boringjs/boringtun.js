@@ -343,6 +343,7 @@ describe('ipv4 packet', () => {
 
     // SYN
     socketStream.send(tcp({ SYN: true }))
+    await delay(0)
     expect(lastMsgs.length).toBe(1)
 
     expect(lastMsgs[0].SYN).toBeTruthy()

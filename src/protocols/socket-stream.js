@@ -218,14 +218,12 @@ class SocketStream extends EventEmitter {
       this.#acknowledgmentNumber = tcpMessage.sequenceNumber + 1
       const ipv4TCPSynAckMessage = this.#createTCP({ SYN: true, ACK: true })
 
-      this.emit('tcpMessage', ipv4TCPSynAckMessage)
+      this.#connect(ipv4TCPSynAckMessage)
       return
     }
 
     if (tcpMessage.ACK && this.#tcpStage === 'syn') {
       this.#tcpStage = 'established'
-      this.#connect()
-
       // this is not correct todo refactor
       this.#acknowledgmentNumber = tcpMessage.sequenceNumber // warning
       this.#sequenceNumber = tcpMessage.acknowledgmentNumber // warning
@@ -249,7 +247,7 @@ class SocketStream extends EventEmitter {
       console.log('strange socket!!!')
     }
 
-    if (this.#socketStage === 'connected' && tcpMessage.PSH) {
+    if (this.#socketStage === 'connected') {
       this.#writeDataToSocket()
     }
   }
@@ -290,7 +288,7 @@ class SocketStream extends EventEmitter {
     }
   }
 
-  #connect() {
+  #connect(ipv4Packet) {
     if (this.#socketStage !== 'new') {
       console.error('socket is not new')
       return
@@ -303,15 +301,16 @@ class SocketStream extends EventEmitter {
 
     const port = this.#destinationPort
     const host = this.#destinationIP.toString()
-    this.#socket = this.#getSocket({ host, port }, this.#onSocketConnect.bind(this))
+    this.#socket = this.#getSocket({ host, port }, this.#onSocketConnect.bind(this, ipv4Packet))
     this.#socket.on('data', (this.#onSocketDataBind = this.#onSocketData.bind(this)))
     this.#socket.on('error', (this.#onSocketErrorBind = this.#onSocketError.bind(this)))
     this.#socket.on('close', (this.#closeBind = this.close.bind(this)))
   }
 
-  #onSocketConnect() {
+  #onSocketConnect(ip4Packet) {
     clearTimeout(this.#connectionTimeout)
     this.#socketStage = 'connected'
+    this.#emitMessage(ip4Packet)
     this.#writeDataToSocket()
   }
 
