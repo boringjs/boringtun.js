@@ -5,15 +5,16 @@ const { TCP } = require('./constants.js')
 const IP4Packet = require('./ip4-packet.js')
 
 const SOCKET_CONNECTION_TIMEOUT = 30000
+const DELTA = 1600 // todo rename
 
 class SocketStream extends EventEmitter {
   #sourceIP = null // : String
   #destinationIP = null // : String
   #sourcePort = null // : Integer
   #destinationPort = null // : Integer
-  #netSocket = /** @type{Socket} */ null
-  #onNetSocketReceiveBind
-  #onNetSocketErrorBind
+  #socket = /** @type{Socket} */ null
+  #onSocketDataBind
+  #onSocketErrorBind
   #closeBind
   #socketStage = 'new'
   #tcpStage = 'new'
@@ -21,6 +22,8 @@ class SocketStream extends EventEmitter {
   #sequenceNumber = 0
   #acknowledgmentNumber = 0
   #packetDeque = new Deque()
+  #delta = 0
+  #id = 0
 
   /**
    * @param {object} options
@@ -29,97 +32,16 @@ class SocketStream extends EventEmitter {
    * @param {number} options.sourcePort
    * @param {number} options.destinationPort
    */
-  constructor({ sourceIP, destinationIP, sourcePort, destinationPort }) {
+  constructor({ sourceIP, destinationIP, sourcePort, destinationPort, delta = DELTA }) {
     super()
     this.#sourceIP = sourceIP
     this.#destinationIP = destinationIP
     this.#sourcePort = sourcePort
     this.#destinationPort = destinationPort
+    this.#delta = delta
   }
 
-  #setupListeners() {
-    this.#netSocket.on('data', (this.#onNetSocketReceiveBind = this.#onNetSocketReceive.bind(this)))
-    this.#netSocket.on('error', (this.#onNetSocketErrorBind = this.#onNetSocketError.bind(this)))
-    this.#netSocket.on('close', (this.#closeBind = this.close.bind(this)))
-  }
-
-  #onNetSocketError(error) {
-    console.log(error)
-    // this.emit('error', error)
-  }
-
-  /**
-   * @param {Buffer} data
-   */
-  #onNetSocketReceive(data) {
-    // console.log('data from socket: ', data.slice(0, 50).toString())
-    let offset = 0
-
-    while (offset < data.length) {
-      let delta = offset + 1000
-      if (delta >= data.length) {
-        delta = data.length
-      }
-
-      const subData = data.slice(offset, delta)
-
-      const ipPacket = new IP4Packet({
-        protocol: 'TCP',
-        ipFlags: 0,
-        ttl: 64,
-        sourceIP: this.#destinationIP,
-        destinationIP: this.#sourceIP,
-        sourcePort: this.#destinationPort,
-        destinationPort: this.#sourcePort,
-        sequenceNumber: this.#sequenceNumber,
-        acknowledgmentNumber: this.#acknowledgmentNumber,
-        urgentPointer: 0,
-        data: subData,
-        URG: false,
-        ACK: true,
-        PSH: false,
-        RST: false,
-        SYN: false,
-        FIN: false,
-        window: 2052,
-      })
-
-      this.emit('tcpMessage', ipPacket)
-
-      this.#sequenceNumber += subData.length
-      offset = delta
-    }
-  }
-
-  #getRandomSequenceNumber() {
-    return Math.floor(Math.random() * 10000000) // todo refactor
-  }
-
-  #createRespondThatReceivedFiles({ ipv4Packet, tcpMessage }) {
-    return new IP4Packet({
-      protocol: TCP,
-      ipFlags: 0,
-      ttl: 64,
-      sourceIP: ipv4Packet.destinationIP,
-      destinationIP: ipv4Packet.sourceIP,
-      sourcePort: tcpMessage.destinationPort,
-      destinationPort: tcpMessage.sourcePort,
-      sequenceNumber: this.#sequenceNumber,
-      acknowledgmentNumber: this.#acknowledgmentNumber,
-      urgentPointer: 0,
-      options: Buffer.alloc(0),
-      data: Buffer.alloc(0),
-      // URG: false,
-      ACK: true,
-      // PSH: false,
-      // RST: false,
-      // SYN: false,
-      // FIN: false,
-      window: tcpMessage.window,
-    })
-  }
-
-  #createTCPMessage(options = {}) {
+  #createTCP(options = {}) {
     return new IP4Packet({
       protocol: TCP,
       ipFlags: 0,
@@ -144,39 +66,58 @@ class SocketStream extends EventEmitter {
     })
   }
 
-  #createFinAckMessage({ ipv4Packet, tcpMessage }) {
-    return new IP4Packet({
-      protocol: TCP,
-      ipFlags: 0,
-      ttl: 64,
-      sourceIP: ipv4Packet.destinationIP,
-      destinationIP: ipv4Packet.sourceIP,
-      sourcePort: tcpMessage.destinationPort,
-      destinationPort: tcpMessage.sourcePort,
-      sequenceNumber: this.#sequenceNumber,
-      acknowledgmentNumber: this.#acknowledgmentNumber,
-      urgentPointer: 0,
-      options: Buffer.alloc(0),
-      data: Buffer.alloc(0),
-      // URG: false,
-      ACK: true,
-      // PSH: false,
-      // RST: false,
-      // SYN: false,
-      FIN: true,
-      window: tcpMessage.window,
-    })
+  #setupListeners() {
+    this.#socket.on('data', (this.#onSocketDataBind = this.#onSocketData.bind(this)))
+    this.#socket.on('error', (this.#onSocketErrorBind = this.#onSocketError.bind(this)))
+    this.#socket.on('close', (this.#closeBind = this.close.bind(this)))
+  }
+
+  #onSocketError(error) {
+    console.log(error)
+    // this.emit('error', error)
+  }
+
+  /**
+   * @param {Buffer} data
+   */
+  #onSocketData(data) {
+    // console.log('data from socket: ', data.slice(0, 50).toString())
+    let offsetFrom = 0
+
+    while (offsetFrom < data.length) {
+      let offsetTo = offsetFrom + this.#delta
+      if (offsetTo >= data.length) {
+        offsetTo = data.length
+      }
+
+      const subData = data.slice(offsetFrom, offsetTo)
+
+      const ipPacket = this.#createTCP({
+        data: subData,
+        ACK: true,
+        PSH: offsetTo === data.length,
+      })
+
+      this.emit('tcpMessage', ipPacket)
+
+      this.#sequenceNumber += subData.length
+      offsetFrom = offsetTo
+    }
+  }
+
+  #getRandomSequenceNumber() {
+    return Math.floor(Math.random() * 10000000) // todo refactor
   }
 
   #emitMessage(ipv4Packet) {
     this.emit('tcpMessage', ipv4Packet)
   }
 
-  #finStage({ ipv4Packet, tcpMessage } = {}) {
+  #finStage(tcpMessage) {
     // server init fin
     if (this.#tcpStage === 'connected') {
       this.#tcpStage = 'fin_init'
-      this.#emitMessage(this.#createTCPMessage({ FIN: true }))
+      this.#emitMessage(this.#createTCP({ FIN: true }))
       return
     }
 
@@ -203,7 +144,7 @@ class SocketStream extends EventEmitter {
     ) {
       this.#tcpStage = 'fin_ack'
       this.#acknowledgmentNumber += 2
-      this.#emitMessage(this.#createTCPMessage({ FIN: true }))
+      this.#emitMessage(this.#createTCP({ FIN: true }))
       console.log('grace close connection by server')
       this.emit('close')
       return
@@ -212,9 +153,9 @@ class SocketStream extends EventEmitter {
     // client init fin
     if (this.#tcpStage === 'fin_client') {
       this.#acknowledgmentNumber += 1
-      this.#emitMessage(this.#createTCPMessage({ ACK: true }))
+      this.#emitMessage(this.#createTCP({ ACK: true }))
       this.#sequenceNumber += 1
-      this.#emitMessage(this.#createTCPMessage({ FIN: true }))
+      this.#emitMessage(this.#createTCP({ FIN: true }))
       this.#tcpStage = 'fin_client2'
       return
     }
@@ -231,17 +172,21 @@ class SocketStream extends EventEmitter {
   }
 
   /**
-   * @param {IPv4Packet} ipv4Packet
+   * @param {IP4Packet} ip4Packet
    * @param {TCPMessage} tcpMessage
    */
-  send({ ipv4Packet, tcpMessage }) {
+  send(ip4Packet, tcpMessage) {
+    if (!tcpMessage) {
+      tcpMessage = ip4Packet.getTCPMessage()
+    }
+
     if (this.#tcpStage.includes('fin')) {
-      return this.#finStage({ ipv4Packet, tcpMessage })
+      return this.#finStage(tcpMessage)
     }
 
     if (tcpMessage.FIN) {
       this.#tcpStage = 'fin_client'
-      return this.#finStage({ ipv4Packet, tcpMessage })
+      return this.#finStage(tcpMessage)
     }
 
     if (tcpMessage.RST) {
@@ -260,7 +205,8 @@ class SocketStream extends EventEmitter {
       this.#tcpStage = 'syn'
       this.#sequenceNumber = this.#getRandomSequenceNumber()
       this.#acknowledgmentNumber = tcpMessage.sequenceNumber + 1
-      const ipv4TCPSynAckMessage = this.#createSynAckMessage({ ipv4Packet, tcpMessage })
+      const ipv4TCPSynAckMessage = this.#createTCP({ SYN: true, ACK: true })
+
       this.emit('tcpMessage', ipv4TCPSynAckMessage)
       // console.log(`${this.#destinationIP} syn ack`)
       return
@@ -284,7 +230,8 @@ class SocketStream extends EventEmitter {
     if (tcpMessage.ACK) {
       this.#packetDeque.push(tcpMessage)
       this.#acknowledgmentNumber += tcpMessage.data.length
-      const respond = this.#createRespondThatReceivedFiles({ ipv4Packet, tcpMessage })
+      const respond = this.#createTCP({ ACK: true })
+
       this.emit('tcpMessage', respond)
     } else {
       console.log('strange socket!!!')
@@ -295,41 +242,22 @@ class SocketStream extends EventEmitter {
     }
   }
 
-  #createSynAckMessage({ ipv4Packet, tcpMessage }) {
-    return new IP4Packet({
-      protocol: TCP,
-      ipFlags: 0,
-      ttl: 64,
-      sourceIP: ipv4Packet.destinationIP,
-      destinationIP: ipv4Packet.sourceIP,
-      sourcePort: tcpMessage.destinationPort,
-      destinationPort: tcpMessage.sourcePort,
-      sequenceNumber: this.#sequenceNumber,
-      acknowledgmentNumber: this.#acknowledgmentNumber,
-      urgentPointer: 0,
-      options: Buffer.alloc(0),
-      data: Buffer.alloc(0),
-      // URG: false,
-      ACK: true,
-      // PSH: false,
-      // RST: false,
-      SYN: true,
-      // FIN: false,
-      window: tcpMessage.window,
-    })
-  }
-
   /**
    * @param {Buffer} data
    * @throws
    */
   #writeDataToSocket() {
+    if (!this.#packetDeque.size) {
+      console.log('nothing to write')
+      return
+    }
+
     if (this.#socketStage !== 'connected') {
       console.log('socket is not connected')
       return
     }
 
-    if (!this.#netSocket?.writable) {
+    if (!this.#socket?.writable) {
       console.log('socket is not writable')
       return
     }
@@ -338,7 +266,7 @@ class SocketStream extends EventEmitter {
       const packet = this.#packetDeque.shift()
       const data = packet.data
       if (data.length) {
-        this.#netSocket.write(data)
+        this.#socket.write(data)
       }
     }
   }
@@ -356,7 +284,7 @@ class SocketStream extends EventEmitter {
 
     const port = this.#destinationPort
     const host = this.#destinationIP.toString()
-    this.#netSocket = net.connect({ host, port }, this.#onSocketConnect.bind(this))
+    this.#socket = net.connect({ host, port }, this.#onSocketConnect.bind(this))
     this.#setupListeners()
   }
 
@@ -367,12 +295,12 @@ class SocketStream extends EventEmitter {
   }
 
   close() {
-    if (this.#netSocket) {
-      this.#netSocket.off('data', this.#onNetSocketReceiveBind)
-      this.#netSocket.off('error', this.#onNetSocketErrorBind)
-      this.#netSocket.off('close', this.#closeBind)
-      this.#netSocket.destroy()
-      this.#netSocket = null
+    if (this.#socket) {
+      this.#socket.off('data', this.#onSocketDataBind)
+      this.#socket.off('error', this.#onSocketErrorBind)
+      this.#socket.off('close', this.#closeBind)
+      this.#socket.destroy()
+      this.#socket = null
     }
 
     if (this.#tcpStage === 'connected') {
