@@ -237,9 +237,7 @@ class SocketStream extends EventEmitter {
     } // return
 
     if (tcpMessage.ACK && tcpMessage.data.length === 0) {
-      // this is not correct todo refactor
-      this.#acknowledgmentNumber = tcpMessage.sequenceNumber // warning
-      this.#sequenceNumber = tcpMessage.acknowledgmentNumber // warning
+      // todo counting
       return
     } // return
 
