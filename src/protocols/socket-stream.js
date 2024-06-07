@@ -26,6 +26,7 @@ class SocketStream extends EventEmitter {
   #delta = 0
   #id = 0
   #logger = /** @type{Logger} */ null
+  #socketDebugId = Math.random().toString().slice(2)
   /**
    * @param {Object} options
    * @param {string} options.host
@@ -102,7 +103,7 @@ class SocketStream extends EventEmitter {
    * @param {Buffer} data
    */
   #onSocketData(data) {
-    // this.#logger.debug(() => 'data from socket: ', data.slice(0, 50).toString())
+    this.#logger.debug(() => `data from socket ${this.#socketDebugId}: ${data.length}`)
     let offsetFrom = 0
 
     while (offsetFrom < data.length) {
@@ -174,6 +175,8 @@ class SocketStream extends EventEmitter {
     // client init fin
     if (this.#tcpStage === 'fin_client') {
       this.#acknowledgmentNumber += 1
+
+      this.#logger.debug(() => 'send ack fin')
       this.#emitMessage(this.#createTCP({ ACK: true }))
       this.#sequenceNumber += 1
       this.#emitMessage(this.#createTCP({ FIN: true, ACK: true }))
@@ -322,6 +325,7 @@ class SocketStream extends EventEmitter {
   }
 
   close() {
+    this.#logger.debug(() => `close socket ${this.#socketDebugId}`)
     if (this.#socket) {
       this.#socket.off('data', this.#onSocketDataBind)
       this.#socket.off('error', this.#onSocketErrorBind)

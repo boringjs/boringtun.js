@@ -135,7 +135,7 @@ class Wireguard extends EventEmitter {
       return peer.write(ipv4Packet.toBuffer())
     }
 
-    this.#logger.debug(() => `goto tcp layer -> ${ipv4Packet.destinationIP}`)
+    this.#logger.debug(() => `goto ip layer -> ${ipv4Packet.destinationIP} ${ipv4Packet.protocol}`)
 
     this.#ipLayer.send(ipv4Packet)
   }
