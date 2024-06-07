@@ -4,6 +4,7 @@ const DNSMessage = require('./dns-message.js')
 const IP4Packet = require('./ip4-packet.js')
 const { UDP } = require('./constants.js')
 
+const Logger = require('../utils/logger.js')
 const TIME_DNS_EXPIRE = 30_000
 const GC_INTERVAL = 3_000
 
@@ -12,13 +13,11 @@ class DNSResolver extends EventEmitter {
   #udpConnectionTimeout = null
   #udpProxySocket = dgram.createSocket('udp4')
   #expireDelta
-  #logLevel
-  #log
+  #logger = /** @type{Logger}*/ null
 
-  constructor({ logLevel = 1, log = console.log, expireDelta = TIME_DNS_EXPIRE } = {}) {
+  constructor({ logger, expireDelta = TIME_DNS_EXPIRE } = {}) {
     super()
-    this.#logLevel = logLevel
-    this.#log = log
+    this.#logger = logger || new Logger()
     this.#udpConnectionTimeout = setInterval(this.#cleanUDPConnections.bind(this), GC_INTERVAL)
     this.#udpProxySocket.on('message', this.#onReceiveDNSMessage.bind(this))
     this.#expireDelta = expireDelta
@@ -34,10 +33,10 @@ class DNSResolver extends EventEmitter {
 
   #onReceiveDNSMessage(message, { address, port }) {
     const dns = new DNSMessage(message)
-    console.log('receive dns reponse', dns)
+    this.#logger.debug(() => ['receive dns response', dns])
 
     if (!dns || !dns.valid || !dns.isResponse()) {
-      console.log('not valid response')
+      this.#logger.warn(() => 'not valid response')
       return
     }
 
@@ -58,7 +57,7 @@ class DNSResolver extends EventEmitter {
       udpData: message,
     })
 
-    console.log('emit dns response')
+    this.#logger.debug('emit dns response')
     this.emit('DNSResponse', packet)
   }
 
@@ -70,7 +69,7 @@ class DNSResolver extends EventEmitter {
     const dns = udpMessage.getDNSMessage()
 
     if (!dns || !dns.valid || !dns.isRequest()) {
-      console.log('not valid dns')
+      this.#logger.warn('not valid dns')
       return
     }
 
@@ -80,7 +79,9 @@ class DNSResolver extends EventEmitter {
       sourceIP: ip4Packet.sourceIP,
     })
 
-    console.log('send request')
+    this.#logger.debug(
+      () => `send request ${udpMessage.destinationIP}:${udpMessage.destinationPort} ${udpMessage.data.length} bytes`,
+    )
     this.#udpProxySocket.send(udpMessage.data, udpMessage.destinationPort, udpMessage.destinationIP.toString())
   }
 

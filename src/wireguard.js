@@ -5,6 +5,7 @@ const { checkValidKey, getPublicKeyFrom } = require('./tunnel.js')
 const Peer = require('./peer.js')
 const IP4Address = require('./protocols/ip4-address.js')
 const IPv4Packet = require('./protocols/ip4-packet.js')
+const Logger = require('./utils/logger.js')
 
 class Wireguard extends EventEmitter {
   #ipLayer = /** @type{IPLayer} */ null
@@ -17,9 +18,9 @@ class Wireguard extends EventEmitter {
   #mapEndpointIpToPeer = /** @type{Map<string,Peer>} */ new Map()
   #index = 1
   #logLevel = 0
-  #log = () => {}
+  #logger
 
-  constructor({ privateKey, listenPort, address, logLevel = 0, log = console.log }) {
+  constructor({ privateKey, listenPort, address, logLevel = 0 }) {
     if (typeof privateKey !== 'string' || !checkValidKey(privateKey)) {
       throw new Error('Invalid privateKey')
     }
@@ -35,8 +36,8 @@ class Wireguard extends EventEmitter {
     this.#address = new IP4Address(address)
     this.#createServerListeners()
     this.#logLevel = logLevel
-    this.#log = log
-    this.#ipLayer = new IPLayer({ log, logLevel })
+    this.#logger = new Logger({ logLevel })
+    this.#ipLayer = new IPLayer({ logger: this.#logger })
     this.#ipLayer.on('ipv4ToTunnel', this.#onMessageFromIPLayer.bind(this))
   }
 
@@ -80,6 +81,7 @@ class Wireguard extends EventEmitter {
       index: this.#index++,
       endpointPort,
       endpointAddress,
+      logger: this.#logger,
     })
 
     this.#peers.push(peer)
@@ -119,7 +121,11 @@ class Wireguard extends EventEmitter {
   }
 
   #onWriteToTunnel({ address, port, data }) {
-    this.#server.send(data, port, address, (error) => (error ? console.error(`Error onsend to client${error}`) : null))
+    this.#server.send(data, port, address, (error) => {
+      if (error) {
+        this.#logger.error(() => error)
+      }
+    })
   }
 
   #onWriteToIPv4(data) {
@@ -129,9 +135,7 @@ class Wireguard extends EventEmitter {
       return peer.write(ipv4Packet.toBuffer())
     }
 
-    if (this.#logLevel > 1) {
-      console.log(`goto tcp layer -> ${ipv4Packet.destinationIP}`)
-    }
+    this.#logger.debug(() => `goto tcp layer -> ${ipv4Packet.destinationIP}`)
 
     this.#ipLayer.send(ipv4Packet)
   }
@@ -151,8 +155,8 @@ class Wireguard extends EventEmitter {
     this.#peers.some((peer) => peer.read(message, address, port))
   }
 
-  #onError(data) {
-    console.error(data) // todo
+  #onError(error) {
+    this.#logger.error(error) // todo
   }
 
   #createServerListeners() {
@@ -162,7 +166,7 @@ class Wireguard extends EventEmitter {
 
   #onListening() {
     if (this.#logLevel) {
-      console.log('Start working')
+      this.#logger.log('Start working')
     }
 
     this.#peers.forEach((peer) => peer.forceHandshake())

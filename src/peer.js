@@ -1,16 +1,19 @@
 const { EventEmitter } = require('events')
 const IP4Address = require('./protocols/ip4-address.js')
 const { WireguardTunnelWrapper } = require('./tunnel.js')
+const Logger = require('./utils/logger.js')
 
 class Peer extends EventEmitter {
   #allowedIPs = /** @type{IP4Address[]}*/ []
   #tunnel = /** @type{WireguardTunnel|null} */ null
   #endpointAddress = null
   #endpointPort = 0
+  #logger
 
-  constructor({ privateServerKey, publicKey, allowedIPs, keepAlive, index, endpointAddress, endpointPort }) {
+  constructor({ logger, privateServerKey, publicKey, allowedIPs, keepAlive, index, endpointAddress, endpointPort }) {
     super()
     this.#allowedIPs = allowedIPs.split(',').map((ip) => new IP4Address(ip))
+    this.#logger = logger || new Logger()
 
     this.#tunnel = new WireguardTunnelWrapper({
       privateKey: privateServerKey,
@@ -79,7 +82,7 @@ class Peer extends EventEmitter {
     }
 
     if (type === WireguardTunnelWrapper.WIREGUARD_ERROR) {
-      console.error('Error on wireguard')
+      this.#logger.error('Error on wireguard')
       return
     }
 
@@ -89,7 +92,7 @@ class Peer extends EventEmitter {
     }
 
     if (type === WireguardTunnelWrapper.WRITE_TO_TUNNEL_IPV6) {
-      console.error('This implementation do not support IPV6')
+      this.#logger.error('This implementation do not support IPV6')
       return
     }
 

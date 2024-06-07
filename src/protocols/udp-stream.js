@@ -1,15 +1,14 @@
 const { EventEmitter } = require('events')
 const UDPClient = require('./udp-client.js')
+const Logger = require('../utils/logger.js')
 
 class UDPStream extends EventEmitter {
   #udpClients = /** @type{Map<string, UDPClient>}*/ new Map()
-  #log
-  #logLevel
+  #logger
 
-  constructor({ log = console.log, logLevel = 1 }) {
+  constructor({ logger = console }) {
     super()
-    this.#log = log
-    this.#logLevel = logLevel
+    this.#logger = logger || new Logger()
   }
 
   /**

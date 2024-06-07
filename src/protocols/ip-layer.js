@@ -3,24 +3,20 @@ const DNSResolver = require('./dns-resolver.js')
 const UDPStream = require('./udp-stream.js')
 const TCPContainer = require('./tcp-container.js')
 const { TCP, UDP } = require('./constants.js')
+const Logger = require('../utils/logger.js')
 
 class IPLayer extends EventEmitter {
   #dnsResolver = /** @type{DNSResolver}*/ null
   #udpStream = /** @type{UDPStream}*/ null
   #tcpContainer = /** @type{TCPContainer} */ null
+  #logger = /** @type{Logger}*/ null
 
-  #logLevel
-  #log
-
-  constructor({ logLevel = 1, log = console.log } = {}) {
+  constructor({ logger } = {}) {
     super()
-
-    this.#logLevel = logLevel
-    this.#log = log
-
-    this.#dnsResolver = new DNSResolver({ log, logLevel })
-    this.#udpStream = new UDPStream({ log, logLevel })
-    this.#tcpContainer = new TCPContainer({ log, logLevel })
+    this.#logger = logger || new Logger({ logLevel: 0 })
+    this.#dnsResolver = new DNSResolver({ logger })
+    this.#udpStream = new UDPStream({ logger })
+    this.#tcpContainer = new TCPContainer({ logger })
     this.#dnsResolver.on('DNSResponse', this.#emitIPv4Packet.bind(this))
     this.#udpStream.on('udpMessage', this.#emitIPv4Packet.bind(this))
     this.#tcpContainer.on('tcpMessage', this.#emitIPv4Packet.bind(this))

@@ -1,17 +1,16 @@
 const SocketStream = require('./socket-stream.js')
 const { TCP } = require('./constants.js')
 const { EventEmitter } = require('events')
+const Logger = require('../utils/logger.js')
 
 class TCPContainer extends EventEmitter {
   #tcpConnections = /** @type{Map<string, SocketStream>} */ new Map() // Map (maps connection identifiers to SocketStream instances)
-  #log
+  #logger = /** @type{Logger} */ null
   #logLevel
 
-  constructor({ log = console.log, logLevel = 1 } = {}) {
+  constructor({ logger } = {}) {
     super()
-
-    this.#log = log
-    this.#logLevel = logLevel
+    this.#logger = logger || new Logger()
   }
 
   send(ipv4Packet, tcpMessage) {
@@ -43,7 +42,7 @@ class TCPContainer extends EventEmitter {
     })
 
     if (!this.#tcpConnections.has(hash)) {
-      const socketStream = new SocketStream({ sourceIP, destinationIP, sourcePort, destinationPort })
+      const socketStream = new SocketStream({ sourceIP, destinationIP, sourcePort, destinationPort, logger: this.#logger })
       this.#tcpConnections.set(hash, socketStream)
 
       socketStream.on('tcpMessage', this.emit.bind(this, 'tcpMessage'))

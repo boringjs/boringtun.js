@@ -3,6 +3,7 @@ const net = require('net')
 const Deque = require('./../utils/deque.js')
 const { TCP } = require('./constants.js')
 const IP4Packet = require('./ip4-packet.js')
+const Logger = require('../utils/logger.js')
 
 const SOCKET_CONNECTION_TIMEOUT = 30000
 const DELTA = 1000 // todo rename
@@ -24,6 +25,7 @@ class SocketStream extends EventEmitter {
   #packetDeque = new Deque()
   #delta = 0
   #id = 0
+  #logger = /** @type{Logger} */ null
   /**
    * @param {Object} options
    * @param {string} options.host
@@ -47,6 +49,7 @@ class SocketStream extends EventEmitter {
     destinationPort,
     delta = DELTA,
     getSocket = (options, callback) => net.connect(options, callback),
+    logger,
   }) {
     super()
     this.#sourceIP = sourceIP
@@ -55,6 +58,7 @@ class SocketStream extends EventEmitter {
     this.#destinationPort = destinationPort
     this.#delta = delta
     this.#getSocket = getSocket
+    this.#logger = logger || new Logger()
   }
 
   #createTCP(options = {}) {
@@ -91,14 +95,14 @@ class SocketStream extends EventEmitter {
       this.emit('close')
       return
     }
-    console.log(`error: "${error.message}" "${error.code}"`, error)
+    this.#logger.error(() => [`error: "${error.message}" "${error.code}"`, error])
   }
 
   /**
    * @param {Buffer} data
    */
   #onSocketData(data) {
-    // console.log('data from socket: ', data.slice(0, 50).toString())
+    // this.#logger.debug(() => 'data from socket: ', data.slice(0, 50).toString())
     let offsetFrom = 0
 
     while (offsetFrom < data.length) {
@@ -162,7 +166,7 @@ class SocketStream extends EventEmitter {
       this.#tcpStage = 'fin_ack'
       this.#acknowledgmentNumber += 2
       this.#emitMessage(this.#createTCP({ FIN: true }))
-      console.log('grace close connection by server')
+      this.#logger.debug(() => 'grace close connection by server')
       this.emit('close')
       return
     }
@@ -183,7 +187,7 @@ class SocketStream extends EventEmitter {
       tcpMessage.sequenceNumber === this.#acknowledgmentNumber &&
       tcpMessage.acknowledgmentNumber === this.#sequenceNumber + 1
     ) {
-      console.log('grace close connection by client')
+      this.#logger.debug(() => 'grace close connection by client')
       this.emit('close')
     }
   }
@@ -207,7 +211,7 @@ class SocketStream extends EventEmitter {
     }
 
     if (tcpMessage.RST) {
-      console.log('connection reset')
+      this.#logger.debug(() => 'connection reset')
       this.#tcpStage = 'reset'
       this.close()
       this.emit('close')
@@ -248,7 +252,7 @@ class SocketStream extends EventEmitter {
 
       this.emit('tcpMessage', respond)
     } else {
-      console.log('strange socket!!!')
+      this.#logger.debug(() => 'strange socket!!!')
     }
 
     if (this.#socketStage === 'connected') {
@@ -266,12 +270,12 @@ class SocketStream extends EventEmitter {
     }
 
     if (this.#socketStage !== 'connected') {
-      console.log('socket is not connected')
+      this.#logger.debug(() => 'socket is not connected')
       return
     }
 
     if (!this.#socket?.writable) {
-      console.log('socket is not writable')
+      this.#logger.debug(() => 'socket is not writable')
       return
     }
 
@@ -293,14 +297,14 @@ class SocketStream extends EventEmitter {
 
   #connect(ipv4Packet) {
     if (this.#socketStage !== 'new') {
-      console.error('socket is not new')
+      this.#logger.error(() => 'socket is not new')
       return
     }
 
     this.#socketStage = 'connecting'
     this.#connectionTimeout = setTimeout(this.close.bind(this), SOCKET_CONNECTION_TIMEOUT)
 
-    console.log(`connecting: ${this.#destinationIP.toString()}:${this.#destinationPort}`)
+    this.#logger.debug(() => `connecting: ${this.#destinationIP.toString()}:${this.#destinationPort}`)
 
     const port = this.#destinationPort
     const host = this.#destinationIP.toString()
