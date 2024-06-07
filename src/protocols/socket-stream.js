@@ -227,21 +227,23 @@ class SocketStream extends EventEmitter {
       tcpMessage = ip4Packet.getTCPMessage()
     }
 
-    if (this.#tcpStage.includes('fin')) {
-      return this.#finStage(tcpMessage)
-    }
-
-    if (tcpMessage.FIN) {
-      this.#tcpStage = 'fin_client'
-      return this.#finStage(tcpMessage)
-    }
-
     if (tcpMessage.RST) {
       this.#logger.debug(() => 'connection reset')
       this.#tcpStage = 'reset'
       this.close()
       this.emit('close')
       return
+    }
+
+    if (this.#tcpStage.includes('fin')) {
+      return this.#finStage(tcpMessage)
+    }
+
+    if (tcpMessage.FIN) {
+      this.#logger.debug(() => `fin client ${this.#socketDebugId}`)
+      this.#tcpStage = 'fin_client'
+      this.close()
+      return this.#finStage(tcpMessage)
     }
 
     if (tcpMessage.SYN) {
@@ -305,20 +307,20 @@ class SocketStream extends EventEmitter {
       return
     }
 
-    const bufferArray = []
     while (this.#packetDeque.size) {
-      const packet = this.#packetDeque.shift()
-      bufferArray.push(packet.data)
-      if (packet.PSH) {
-        this.#socket.write(Buffer.concat(bufferArray))
-        bufferArray.length = 0
-      }
+      this.#socket.write(this.#packetDeque.shift().data)
+      // const packet = this.#packetDeque.shift()
+      // bufferArray.push(packet.data)
+      // if (packet.PSH) {
+      //   this.#socket.write(Buffer.concat(bufferArray))
+      //   bufferArray.length = 0
+      // }
     }
 
-    if (bufferArray.length) {
-      this.#socket.write(Buffer.concat(bufferArray))
-      bufferArray.length = 0
-    }
+    // if (bufferArray.length) {
+    //   this.#socket.write(Buffer.concat(bufferArray))
+    //   bufferArray.length = 0
+    // }
   }
 
   #connect(ipv4Packet) {
