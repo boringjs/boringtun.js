@@ -20,8 +20,8 @@ class SocketStream extends EventEmitter {
   #socketStage = 'new'
   #tcpStage = 'new'
   #connectionTimeout = null
-  #sequenceNumber = 0
-  #acknowledgmentNumber = 0
+  #sequenceNumberValue = 0
+  #acknowledgmentNumberValue = 0
   #packetDeque = new Deque()
   #delta = 0
   #id = 0
@@ -62,14 +62,31 @@ class SocketStream extends EventEmitter {
     this.#logger = logger || new Logger()
   }
 
+  set #acknowledgmentNumber(v) {
+    this.#acknowledgmentNumberValue = v % 4294967296
+  }
+
+  get #acknowledgmentNumber() {
+    return this.#acknowledgmentNumberValue
+  }
+
+  set #sequenceNumber(v) {
+    this.#sequenceNumberValue = v % 4294967296
+  }
+
+  get #sequenceNumber() {
+    return this.#sequenceNumberValue
+  }
+
   #createTCP(options = {}) {
+    this.#id = (this.#id + 1) % 65535
     return new IP4Packet({
       protocol: TCP,
       ipFlags: 0,
       ttl: 64,
       sourceIP: this.#destinationIP,
       destinationIP: this.#sourceIP,
-      identification: this.#id++,
+      identification: this.#id,
       sourcePort: this.#destinationPort,
       destinationPort: this.#sourcePort,
       sequenceNumber: this.#sequenceNumber,
