@@ -34,7 +34,7 @@ class SocketStream extends EventEmitter {
    * @param {Function} callback
    * @returns {net.Socket}
    */
-  #getSocket
+  #getTCPSocket
 
   /**
    * @param {object} options
@@ -49,7 +49,7 @@ class SocketStream extends EventEmitter {
     sourcePort,
     destinationPort,
     delta = DELTA,
-    getSocket = (options, callback) => net.connect(options, callback),
+    getTCPSocket = (options, callback) => net.connect(options, callback),
     logger,
   }) {
     super()
@@ -58,7 +58,7 @@ class SocketStream extends EventEmitter {
     this.#sourcePort = sourcePort
     this.#destinationPort = destinationPort
     this.#delta = delta
-    this.#getSocket = getSocket
+    this.#getTCPSocket = getTCPSocket
     this.#logger = logger || new Logger()
   }
 
@@ -309,18 +309,7 @@ class SocketStream extends EventEmitter {
 
     while (this.#packetDeque.size) {
       this.#socket.write(this.#packetDeque.shift().data)
-      // const packet = this.#packetDeque.shift()
-      // bufferArray.push(packet.data)
-      // if (packet.PSH) {
-      //   this.#socket.write(Buffer.concat(bufferArray))
-      //   bufferArray.length = 0
-      // }
     }
-
-    // if (bufferArray.length) {
-    //   this.#socket.write(Buffer.concat(bufferArray))
-    //   bufferArray.length = 0
-    // }
   }
 
   #connect(ipv4Packet) {
@@ -336,7 +325,7 @@ class SocketStream extends EventEmitter {
 
     const port = this.#destinationPort
     const host = this.#destinationIP.toString()
-    this.#socket = this.#getSocket({ host, port }, this.#onSocketConnect.bind(this, ipv4Packet))
+    this.#socket = this.#getTCPSocket({ host, port }, this.#onSocketConnect.bind(this, ipv4Packet))
     this.#socket.on('data', (this.#onSocketDataBind = this.#onSocketData.bind(this)))
     this.#socket.on('error', (this.#onSocketErrorBind = this.#onSocketError.bind(this)))
     this.#socket.on('close', (this.#closeBind = this.close.bind(this)))

@@ -20,7 +20,7 @@ class Wireguard extends EventEmitter {
   #logLevel = 0
   #logger
 
-  constructor({ privateKey, listenPort, address, logLevel = 0 }) {
+  constructor({ privateKey, listenPort, address, logLevel = 0, getTCPSocket }) {
     if (typeof privateKey !== 'string' || !checkValidKey(privateKey)) {
       throw new Error('Invalid privateKey')
     }
@@ -37,7 +37,7 @@ class Wireguard extends EventEmitter {
     this.#createServerListeners()
     this.#logLevel = logLevel
     this.#logger = new Logger({ logLevel })
-    this.#ipLayer = new IPLayer({ logger: this.#logger })
+    this.#ipLayer = new IPLayer({ logger: this.#logger, getTCPSocket })
     this.#ipLayer.on('ipv4ToTunnel', this.#onMessageFromIPLayer.bind(this))
   }
 
