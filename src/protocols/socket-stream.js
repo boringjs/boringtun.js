@@ -195,7 +195,7 @@ class SocketStream extends EventEmitter {
 
       this.#logger.debug(() => 'send ack fin')
       this.#emitMessage(this.#createTCP({ ACK: true }))
-      this.#sequenceNumber += 1
+      // this.#sequenceNumber += 1
       this.#emitMessage(this.#createTCP({ FIN: true, ACK: true }))
       this.#tcpStage = 'fin_client2'
       return
@@ -203,11 +203,17 @@ class SocketStream extends EventEmitter {
 
     if (
       tcpMessage.ACK &&
-      this.#tcpStage === 'fin_client2' &&
-      tcpMessage.sequenceNumber === this.#acknowledgmentNumber &&
-      tcpMessage.acknowledgmentNumber === this.#sequenceNumber + 1
+      this.#tcpStage === 'fin_client2' // &&
+      // tcpMessage.sequenceNumber === this.#acknowledgmentNumber &&
+      // tcpMessage.acknowledgmentNumber === this.#sequenceNumber + 1
     ) {
-      this.#logger.debug(() => 'grace close connection by client')
+      this.#logger.debug(() => [
+        'grace close by client:',
+        this.#acknowledgmentNumber,
+        tcpMessage.sequenceNumber,
+        this.#sequenceNumber,
+        tcpMessage.acknowledgmentNumber,
+      ])
       this.emit('close')
     }
   }
