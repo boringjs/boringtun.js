@@ -262,7 +262,6 @@ class SocketStream extends EventEmitter {
    */
   #writeDataToSocket() {
     if (!this.#packetDeque.size) {
-      console.log('nothing to write')
       return
     }
 
