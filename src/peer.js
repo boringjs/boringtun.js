@@ -3,17 +3,24 @@ const IP4Address = require('./protocols/ip4-address.js')
 const { WireguardTunnelWrapper } = require('./tunnel.js')
 const Logger = require('./utils/logger.js')
 
+const TICK_INTERVAL = 100
+const FORCE_HADNSHAKE_DELTA = 1000
+
 class Peer extends EventEmitter {
   #allowedIPs = /** @type{IP4Address[]}*/ []
   #tunnel = /** @type{WireguardTunnel|null} */ null
   #endpointAddress = null
   #endpointPort = 0
   #logger
+  #tickIntervalId = null
+  #publicKey = ''
+  #lastForceHandshake = 0
 
   constructor({ logger, privateServerKey, publicKey, allowedIPs, keepAlive, index, endpointAddress, endpointPort }) {
     super()
     this.#allowedIPs = allowedIPs.split(',').map((ip) => new IP4Address(ip))
     this.#logger = logger || new Logger()
+    this.#publicKey = publicKey
 
     this.#tunnel = new WireguardTunnelWrapper({
       privateKey: privateServerKey,
@@ -21,6 +28,8 @@ class Peer extends EventEmitter {
       keepAlive,
       index,
     })
+
+    this.#tickIntervalId = setInterval(this.#tick.bind(this), TICK_INTERVAL)
 
     if (endpointAddress && endpointPort) {
       this.#endpointPort = endpointPort
@@ -62,6 +71,10 @@ class Peer extends EventEmitter {
    */
   match(ip) {
     return this.#allowedIPs.some((filterIP) => filterIP.match(ip))
+  }
+
+  #tick() {
+    this.routing(this.#tunnel.tick())
   }
 
   routing({ data, type }) {
@@ -107,11 +120,17 @@ class Peer extends EventEmitter {
     const isGood = result.type !== WireguardTunnelWrapper.WIREGUARD_ERROR
 
     if (address && port && isHandshake) {
+      this.#logger.log(() => `for peer handshake: ${this.#publicKey}`)
       const oldEndpoint = this.endpoint
 
       this.endpointAddress = address
       this.endpointPort = port
       this.emit('updateEndpoint', oldEndpoint)
+    }
+
+    if (!isGood) {
+      this.#logger.log(() => `force handshake for peer: ${this.#publicKey}`)
+      this.forceHandshake()
     }
 
     this.routing(result)
@@ -148,7 +167,12 @@ class Peer extends EventEmitter {
     if (!this.endpoint) {
       return
     }
-    // todo force handshake
+
+    if (this.#lastForceHandshake + FORCE_HADNSHAKE_DELTA > Date.now()) {
+      return
+    }
+
+    this.routing(this.#tunnel.forceHandshake())
   }
 
   getStat() {
@@ -156,7 +180,8 @@ class Peer extends EventEmitter {
   }
 
   close() {
-    // todo
+    this.#logger.debug(() => `close peer for ${this.#publicKey}`)
+    clearInterval(this.#tickIntervalId)
   }
 }
 
