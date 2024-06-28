@@ -55,3 +55,29 @@ WireguardTunnel::~WireguardTunnel() {
 bool WireguardTunnel::Valid() {
   return tunnel_ != nullptr;
 }
+
+WireguardTunnel::WireguardTunnel(WireguardTunnel &&other) noexcept
+        : private_key_(std::move(other.private_key_)),
+          peer_public_key_(std::move(other.peer_public_key_)),
+          pre_shared_key_(std::move(other.pre_shared_key_)),
+          keep_alive_(other.keep_alive_),
+          index_(other.index_),
+          tunnel_(other.tunnel_),
+          id_(other.id_) {
+  other.tunnel_ = nullptr;
+}
+
+WireguardTunnel &WireguardTunnel::operator=(WireguardTunnel &&other) noexcept {
+  if (this == &other) {
+    return *this;
+  }
+  private_key_ = std::move(other.private_key_);
+  peer_public_key_ = std::move(other.peer_public_key_);
+  pre_shared_key_ = std::move(other.pre_shared_key_);
+  keep_alive_ = other.keep_alive_;
+  index_ = other.index_;
+  tunnel_ = other.tunnel_;
+  id_ = other.id_;
+  other.tunnel_ = nullptr;
+  return *this;
+}

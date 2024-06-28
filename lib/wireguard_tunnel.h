@@ -37,6 +37,14 @@ public:
           uint8_t *dst,
           uint32_t dst_size);
 
+  WireguardTunnel(const WireguardTunnel &other) = delete;
+
+  WireguardTunnel &operator=(const WireguardTunnel &other) = delete;
+
+  WireguardTunnel(WireguardTunnel &&other) noexcept;
+
+  WireguardTunnel &operator=(WireguardTunnel &&other) noexcept;
+
   stats Stats();
 
   const char *GetPrivateKey();
@@ -48,9 +56,9 @@ public:
   bool Valid();
 
 private:
-  const std::string private_key_;
-  const std::string peer_public_key_;
-  const std::string pre_shared_key_;
+  std::string private_key_;
+  std::string peer_public_key_;
+  std::string pre_shared_key_;
   int32_t keep_alive_;
   int32_t index_;
   wireguard_tunnel *tunnel_;
