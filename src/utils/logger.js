@@ -13,6 +13,11 @@ class Logger {
     this.#debug = debug || this.#debug
     this.#error = error || this.#error
     this.#info = info || this.#info
+    this.log = this.#logInternal.bind(this, this.#log, 1)
+    this.error = this.#logInternal.bind(this, this.#error, 1)
+    this.warn = this.#logInternal.bind(this, this.#warn, 2)
+    this.info = this.#logInternal.bind(this, this.#info, 3)
+    this.debug = this.#logInternal.bind(this, this.#debug, 4)
   }
 
   #logInternal(logFn, logFnLevel, logCallback) {
@@ -34,41 +39,6 @@ class Logger {
     }
 
     return logFn(result)
-  }
-
-  /**
-   * @param {Function|string} fn
-   */
-  log(fn) {
-    this.#logInternal(this.#error, 1, fn)
-  }
-
-  /**
-   * @param {Function|string|Error} fn
-   */
-  error(fn) {
-    this.#logInternal(this.#error, 1, fn)
-  }
-
-  /**
-   * @param {Function|string} fn
-   */
-  warn(fn) {
-    this.#logInternal(this.#error, 2, fn)
-  }
-
-  /**
-   * @param {Function|string} fn
-   */
-  info(fn) {
-    this.#logInternal(this.#error, 3, fn)
-  }
-
-  /**
-   * @param {Function|string} fn
-   */
-  debug(fn) {
-    this.#logInternal(this.#error, 4, fn)
   }
 }
 
