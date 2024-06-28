@@ -119,7 +119,7 @@ class Peer extends EventEmitter {
 
     const isGood = result.type !== WireguardTunnelWrapper.WIREGUARD_ERROR
 
-    if (address && port && isHandshake) {
+    if (address && port && isHandshake && isGood) {
       this.#logger.log(() => `for peer handshake: ${this.#publicKey}`)
       const oldEndpoint = this.endpoint
 
