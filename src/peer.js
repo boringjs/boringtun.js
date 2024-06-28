@@ -165,6 +165,7 @@ class Peer extends EventEmitter {
 
   forceHandshake() {
     if (!this.endpoint) {
+      this.#logger.debug(() => 'no endpoint for handshake')
       return
     }
 
