@@ -107,6 +107,10 @@ jobs:
         uses: actions/download-artifact@v4 # https://github.com/actions/download-artifact
       - name: Rename Artifacts
         run: |
+          mv ./boringtunjs-${{ github.ref_name }}-22-linux-x64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-22-linux-x64.node
+          mv ./boringtunjs-${{ github.ref_name }}-22-darwin-arm64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-22-darwin-arm64.node
+          mv ./boringtunjs-${{ github.ref_name }}-22-darwin-x64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-22-darwin-x64.node
+          mv ./boringtunjs-${{ github.ref_name }}-22-win32-x64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-22-win32-x64.node
           mv ./boringtunjs-${{ github.ref_name }}-20-linux-x64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-20-linux-x64.node
           mv ./boringtunjs-${{ github.ref_name }}-20-darwin-arm64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-20-darwin-arm64.node
           mv ./boringtunjs-${{ github.ref_name }}-20-darwin-x64/boringtunjs.node ./boringtunjs-${{ github.ref_name }}-20-darwin-x64.node
