@@ -18,6 +18,22 @@ jobs:
           - os: ubuntu-20.04
             process_platform: "linux"
             process_arch: "x64"
+            node: 22
+          - os: macos-14
+            process_platform: "darwin"
+            process_arch: "arm64"
+            node: 22
+          - os: macos-latest
+            process_platform: "darwin"
+            process_arch: "x64"
+            node: 22
+          - os: windows-latest
+            process_platform: "win32"
+            process_arch: "x64"
+            node: 22
+          - os: ubuntu-20.04
+            process_platform: "linux"
+            process_arch: "x64"
             node: 20
           - os: macos-14
             process_platform: "darwin"
