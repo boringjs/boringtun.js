@@ -219,6 +219,56 @@ class SocketStream extends EventEmitter {
   }
 
   /**
+   * @param {Buffer} data
+   * @throws
+   */
+  #writeDataToSocket() {
+    if (!this.#packetDeque.size) {
+      return
+    }
+
+    if (this.#socketStage !== 'connected') {
+      this.#logger.debug(() => 'socket is not connected')
+      return
+    }
+
+    if (!this.#socket?.writable) {
+      this.#logger.debug(() => 'socket is not writable')
+      return
+    }
+
+    while (this.#packetDeque.size) {
+      this.#socket.write(this.#packetDeque.shift().data)
+    }
+  }
+
+  #connect(ipv4Packet) {
+    if (this.#socketStage !== 'new') {
+      this.#logger.error(() => 'socket is not new')
+      return
+    }
+
+    this.#socketStage = 'connecting'
+    this.#connectionTimeout = setTimeout(this.close.bind(this), SOCKET_CONNECTION_TIMEOUT)
+
+    this.#logger.debug(() => `connecting: ${this.#destinationIP.toString()}:${this.#destinationPort}`)
+
+    const port = this.#destinationPort
+    const host = this.#destinationIP.toString()
+    this.#socket = this.#getTCPSocket({ host, port }, this.#onSocketConnect.bind(this, ipv4Packet))
+    this.#socket.on('data', (this.#onSocketDataBind = this.#onSocketData.bind(this)))
+    this.#socket.on('error', (this.#onSocketErrorBind = this.#onSocketError.bind(this)))
+    this.#socket.on('close', (this.#closeBind = this.close.bind(this)))
+  }
+
+  #onSocketConnect(ip4Packet) {
+    clearTimeout(this.#connectionTimeout)
+    this.#socketStage = 'connected'
+    this.#emitMessage(ip4Packet)
+    this.#writeDataToSocket()
+  }
+
+  /**
    * @param {IP4Packet} ip4Packet
    * @param {TCPMessage} tcpMessage
    */
@@ -286,56 +336,6 @@ class SocketStream extends EventEmitter {
     if (this.#socketStage === 'connected') {
       this.#writeDataToSocket()
     }
-  }
-
-  /**
-   * @param {Buffer} data
-   * @throws
-   */
-  #writeDataToSocket() {
-    if (!this.#packetDeque.size) {
-      return
-    }
-
-    if (this.#socketStage !== 'connected') {
-      this.#logger.debug(() => 'socket is not connected')
-      return
-    }
-
-    if (!this.#socket?.writable) {
-      this.#logger.debug(() => 'socket is not writable')
-      return
-    }
-
-    while (this.#packetDeque.size) {
-      this.#socket.write(this.#packetDeque.shift().data)
-    }
-  }
-
-  #connect(ipv4Packet) {
-    if (this.#socketStage !== 'new') {
-      this.#logger.error(() => 'socket is not new')
-      return
-    }
-
-    this.#socketStage = 'connecting'
-    this.#connectionTimeout = setTimeout(this.close.bind(this), SOCKET_CONNECTION_TIMEOUT)
-
-    this.#logger.debug(() => `connecting: ${this.#destinationIP.toString()}:${this.#destinationPort}`)
-
-    const port = this.#destinationPort
-    const host = this.#destinationIP.toString()
-    this.#socket = this.#getTCPSocket({ host, port }, this.#onSocketConnect.bind(this, ipv4Packet))
-    this.#socket.on('data', (this.#onSocketDataBind = this.#onSocketData.bind(this)))
-    this.#socket.on('error', (this.#onSocketErrorBind = this.#onSocketError.bind(this)))
-    this.#socket.on('close', (this.#closeBind = this.close.bind(this)))
-  }
-
-  #onSocketConnect(ip4Packet) {
-    clearTimeout(this.#connectionTimeout)
-    this.#socketStage = 'connected'
-    this.#emitMessage(ip4Packet)
-    this.#writeDataToSocket()
   }
 
   close() {
