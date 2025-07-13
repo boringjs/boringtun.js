@@ -8,7 +8,7 @@ const Logger = require('../utils/logger.js')
 const SOCKET_CONNECTION_TIMEOUT = 30000
 const DELTA = 1000 // todo rename
 
-class SocketStream extends EventEmitter {
+class TCPStream extends EventEmitter {
   #sourceIP = null // : String
   #destinationIP = null // : String
   #sourcePort = null // : Integer
@@ -354,4 +354,4 @@ class SocketStream extends EventEmitter {
   }
 }
 
-module.exports = SocketStream
+module.exports = TCPStream

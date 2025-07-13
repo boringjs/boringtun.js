@@ -2,7 +2,7 @@ const IP4Address = require('../src/protocols/ip4-address.js')
 const IP4Packet = require('../src/protocols/ip4-packet.js')
 const UDPMessage = require('../src/protocols/udp-message.js')
 const TCPMessage = require('../src/protocols/tcp-message.js')
-const SocketStream = require('../src/protocols/socket-stream.js')
+const TCPStream = require('../src/protocols/tcp-stream.js')
 const { TCP } = require('../src/protocols/constants.js')
 
 const net = require('net')
@@ -330,7 +330,7 @@ describe('ipv4 packet', () => {
       })
 
     let lastMsgs = /** @type{TCPMessage[]}*/ []
-    const socketStream = new SocketStream({
+    const tcpStream = new TCPStream({
       sourceIP,
       sourcePort,
       destinationPort,
@@ -338,13 +338,13 @@ describe('ipv4 packet', () => {
       delta: 1000,
     })
 
-    socketStream.on('tcpMessage', (msg) => {
+    tcpStream.on('tcpMessage', (msg) => {
       expect(msg.protocol).toBe(TCP)
       lastMsgs.push(msg.getTCPMessage())
     })
 
     // SYN
-    socketStream.send(tcp({ SYN: true }))
+    tcpStream.send(tcp({ SYN: true }))
     await delay(0)
     expect(lastMsgs.length).toBe(1)
 
@@ -358,11 +358,11 @@ describe('ipv4 packet', () => {
     lastMsgs.length = 0
 
     // ACK
-    socketStream.send(tcp({ ACK: true }))
+    tcpStream.send(tcp({ ACK: true }))
 
     const data = Buffer.from('GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: curl/8.4.0\r\nAccept: */*\r\n\r\n')
     sequenceNumber += data.length
-    socketStream.send(
+    tcpStream.send(
       tcp({
         ACK: true,
         PSH: true,
@@ -398,11 +398,11 @@ describe('ipv4 packet', () => {
 
     acknowledgmentNumber += received.length
 
-    socketStream.send(tcp({ ACK: true }))
+    tcpStream.send(tcp({ ACK: true }))
 
     expect(lastMsgs.length).toBe(0)
 
-    socketStream.send(tcp({ FIN: true, ACK: true }))
+    tcpStream.send(tcp({ FIN: true, ACK: true }))
     expect(lastMsgs.length).toBe(2)
     expect(lastMsgs[0].FIN).toBeFalsy()
     expect(lastMsgs[0].ACK).toBeTruthy()
@@ -420,9 +420,9 @@ describe('ipv4 packet', () => {
     sequenceNumber += 1
 
     const close = jest.fn()
-    socketStream.on('close', close)
+    tcpStream.on('close', close)
 
-    socketStream.send(tcp({ ACK: true }))
+    tcpStream.send(tcp({ ACK: true }))
     expect(close.mock.calls.length).toBe(1)
 
     // Clean up

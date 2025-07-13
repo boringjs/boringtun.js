@@ -1,10 +1,10 @@
-const SocketStream = require('./socket-stream.js')
+const TCPStream = require('./tcp-stream.js')
 const { TCP } = require('./constants.js')
 const { EventEmitter } = require('events')
 const Logger = require('../utils/logger.js')
 
 class TCPContainer extends EventEmitter {
-  #tcpConnections = /** @type{Map<string, SocketStream>} */ new Map() // Map (maps connection identifiers to SocketStream instances)
+  #tcpConnections = /** @type{Map<string, TCPStream>} */ new Map() // Map (maps connection identifiers to TCPStream instances)
   #logger = /** @type{Logger} */ null
   #getTCPSocket
 
@@ -18,12 +18,12 @@ class TCPContainer extends EventEmitter {
     const { sourceIP, destinationIP } = ipv4Packet
     const { sourcePort, destinationPort } = tcpMessage
 
-    const socketStream = this.#getSocketStream({ sourceIP, destinationIP, sourcePort, destinationPort })
+    const tcpStream = this.#getTCPStream({ sourceIP, destinationIP, sourcePort, destinationPort })
 
-    socketStream.send(ipv4Packet, tcpMessage)
+    tcpStream.send(ipv4Packet, tcpMessage)
   }
 
-  #getSocketStreamHash({ sourceIP, destinationIP, sourcePort, destinationPort }) {
+  #getTCPStreamHash({ sourceIP, destinationIP, sourcePort, destinationPort }) {
     return `${TCP}:${sourceIP}:${sourcePort}:${destinationIP}:${destinationPort}`
   }
 
@@ -32,10 +32,10 @@ class TCPContainer extends EventEmitter {
    * @param {IP4Address} destinationIP
    * @param {number} sourcePort
    * @param {number} destinationPort
-   * @return {SocketStream}
+   * @return {TCPStream}
    */
-  #getSocketStream({ sourceIP, destinationIP, sourcePort, destinationPort }) {
-    const hash = this.#getSocketStreamHash({
+  #getTCPStream({ sourceIP, destinationIP, sourcePort, destinationPort }) {
+    const hash = this.#getTCPStreamHash({
       sourceIP,
       sourcePort,
       destinationIP,
@@ -43,7 +43,7 @@ class TCPContainer extends EventEmitter {
     })
 
     if (!this.#tcpConnections.has(hash)) {
-      const socketStream = new SocketStream({
+      const tcpStream = new TCPStream({
         sourceIP,
         destinationIP,
         sourcePort,
@@ -51,18 +51,18 @@ class TCPContainer extends EventEmitter {
         logger: this.#logger,
         getTCPSocket: this.#getTCPSocket,
       })
-      this.#tcpConnections.set(hash, socketStream)
+      this.#tcpConnections.set(hash, tcpStream)
 
-      socketStream.on('tcpMessage', this.emit.bind(this, 'tcpMessage'))
-      socketStream.once('close', this.#tcpConnections.delete.bind(this.#tcpConnections, hash))
+      tcpStream.on('tcpMessage', this.emit.bind(this, 'tcpMessage'))
+      tcpStream.once('close', this.#tcpConnections.delete.bind(this.#tcpConnections, hash))
     }
 
     return this.#tcpConnections.get(hash)
   }
 
   close() {
-    for (const [, socketStream] of this.#tcpConnections) {
-      socketStream.close()
+    for (const [, tcpStream] of this.#tcpConnections) {
+      tcpStream.close()
     }
   }
 }
