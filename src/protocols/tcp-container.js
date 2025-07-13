@@ -61,7 +61,7 @@ class TCPContainer extends EventEmitter {
   }
 
   close() {
-    for (const [, tcpStream] of this.#tcpConnections) {
+    for (const tcpStream of this.#tcpConnections.values()) {
       tcpStream.close()
     }
   }
