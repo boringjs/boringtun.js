@@ -1,3 +1,5 @@
+[![Wallaby.js](https://img.shields.io/badge/wallaby.js-powered-blue.svg?style=for-the-badge&logo=github)](https://wallabyjs.com/oss/)
+
 # BoringTunJS
 
 A userspace WireGuard VPN implementation for NodeJS based on [BoringTun](https://github.com/cloudflare/boringtun) which is written in Rust.
