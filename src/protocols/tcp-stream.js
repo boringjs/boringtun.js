@@ -92,7 +92,7 @@ class TCPStream extends EventEmitter {
       sequenceNumber: this.#sequenceNumber,
       acknowledgmentNumber: this.#acknowledgmentNumber,
       urgentPointer: 0,
-      window: 2000, // todo check
+      window: 65535, // todo check
       options: Buffer.alloc(0),
       data: Buffer.alloc(0),
       URG: false,
