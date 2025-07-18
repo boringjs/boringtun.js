@@ -1,4 +1,5 @@
 const { EventEmitter } = require('events')
+const crypto = require('crypto')
 const net = require('net')
 const Deque = require('./../utils/deque.js')
 const { TCP } = require('./constants.js')
@@ -145,7 +146,7 @@ class TCPStream extends EventEmitter {
   }
 
   #getRandomSequenceNumber() {
-    return Math.floor(Math.random() * 10000000) // todo refactor
+    return crypto.randomBytes(4).readUInt32BE(0)
   }
 
   #emitMessage(ipv4Packet) {
