@@ -281,8 +281,9 @@ class TCPStream extends EventEmitter {
     if (tcpMessage.FIN) {
       this.#logger.debug(() => `fin client ${this.#socketDebugId}`)
       this.#tcpStage = 'fin_client'
+      this.#finStage(tcpMessage)
       this.close()
-      return this.#finStage(tcpMessage)
+      return
     }
 
     if (tcpMessage.SYN) {
