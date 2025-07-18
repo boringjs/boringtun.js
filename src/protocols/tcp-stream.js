@@ -154,7 +154,7 @@ class TCPStream extends EventEmitter {
 
   #finStage(tcpMessage) {
     // server init fin
-    if (this.#tcpStage === 'connected') {
+    if (this.#tcpStage === 'established') {
       this.#tcpStage = 'fin_init'
       this.#emitMessage(this.#createTCP({ FIN: true }))
       return
@@ -227,7 +227,7 @@ class TCPStream extends EventEmitter {
       return
     }
 
-    if (this.#socketStage !== 'connected') {
+    if (this.#socketStage !== 'established') {
       this.#logger.debug(() => 'socket is not connected')
       return
     }
@@ -263,7 +263,7 @@ class TCPStream extends EventEmitter {
 
   #onSocketConnect(ip4Packet) {
     clearTimeout(this.#connectionTimeout)
-    this.#socketStage = 'connected'
+    this.#socketStage = 'established'
     this.#emitMessage(ip4Packet)
     this.#writeDataToSocket()
   }
@@ -329,7 +329,7 @@ class TCPStream extends EventEmitter {
       this.#logger.debug(() => 'strange socket!!!')
     }
 
-    if (this.#socketStage === 'connected') {
+    if (this.#socketStage === 'established') {
       this.#writeDataToSocket()
     }
   }
@@ -344,7 +344,7 @@ class TCPStream extends EventEmitter {
       this.#socket = null
     }
 
-    if (this.#tcpStage === 'connected') {
+    if (this.#tcpStage === 'established') {
       this.#finStage()
     }
   }
