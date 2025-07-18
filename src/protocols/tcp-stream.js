@@ -309,7 +309,8 @@ class TCPStream extends EventEmitter {
     } // return
 
     if (tcpMessage.ACK && tcpMessage.data.length === 0) {
-      // todo counting
+      this.#sequenceNumber = tcpMessage.acknowledgmentNumber
+      this.#writeDataToSocket()
       return
     } // return
 
