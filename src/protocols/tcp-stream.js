@@ -153,13 +153,6 @@ class TCPStream extends EventEmitter {
   }
 
   #finStage(tcpMessage) {
-    // server init fin
-    if (this.#tcpStage === 'established') {
-      this.#tcpStage = 'fin_init'
-      this.#emitMessage(this.#createTCP({ FIN: true }))
-      return
-    }
-
     if (!tcpMessage) {
       return
     }
@@ -345,7 +338,8 @@ class TCPStream extends EventEmitter {
     }
 
     if (this.#tcpStage === 'established') {
-      this.#finStage()
+      this.#tcpStage = 'fin_init'
+      this.#emitMessage(this.#createTCP({ FIN: true }))
     }
   }
 }
