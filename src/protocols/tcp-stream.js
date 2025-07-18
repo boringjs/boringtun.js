@@ -79,7 +79,7 @@ class TCPStream extends EventEmitter {
   }
 
   #createTCP(options = {}) {
-    this.#id = (this.#id + 1) % 65535
+    this.#id = (this.#id + 1) % 65536
     return new IP4Packet({
       protocol: TCP,
       ipFlags: 0,
