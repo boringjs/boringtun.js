@@ -327,7 +327,7 @@ describe('ipv4 packet', () => {
         SYN: false,
         FIN: false,
         ...options,
-      })
+      }).getTCPMessage()
 
     let lastMsgs = /** @type{TCPMessage[]}*/ []
     const tcpStream = new TCPStream({

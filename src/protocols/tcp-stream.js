@@ -272,11 +272,7 @@ class TCPStream extends EventEmitter {
    * @param {IP4Packet} ip4Packet
    * @param {TCPMessage} tcpMessage
    */
-  send(ip4Packet, tcpMessage) {
-    if (!tcpMessage) {
-      tcpMessage = ip4Packet.getTCPMessage()
-    }
-
+  send(tcpMessage) {
     if (tcpMessage.RST) {
       this.#logger.debug(() => 'connection reset')
       this.#tcpStage = 'reset'

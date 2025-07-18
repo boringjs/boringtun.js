@@ -20,7 +20,7 @@ class TCPContainer extends EventEmitter {
 
     const tcpStream = this.#getTCPStream({ sourceIP, destinationIP, sourcePort, destinationPort })
 
-    tcpStream.send(ipv4Packet, tcpMessage)
+    tcpStream.send(tcpMessage)
   }
 
   #getTCPStreamHash({ sourceIP, destinationIP, sourcePort, destinationPort }) {
