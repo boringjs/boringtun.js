@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
         include:
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             process_platform: "linux"
             process_arch: "x64"
             node: 22
@@ -31,7 +31,7 @@ jobs:
             process_platform: "win32"
             process_arch: "x64"
             node: 22
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             process_platform: "linux"
             process_arch: "x64"
             node: 20
@@ -47,7 +47,7 @@ jobs:
             process_platform: "win32"
             process_arch: "x64"
             node: 20
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             process_platform: "linux"
             process_arch: "x64"
             node: 18
