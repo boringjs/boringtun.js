@@ -197,9 +197,7 @@ class TCPStream extends EventEmitter {
 
     if (
       tcpMessage.ACK &&
-      this.#tcpStage === 'fin_client2' // &&
-      // tcpMessage.sequenceNumber === this.#acknowledgmentNumber &&
-      // tcpMessage.acknowledgmentNumber === this.#sequenceNumber + 1
+      this.#tcpStage === 'fin_client2'
     ) {
       this.#logger.debug(() => [
         'grace close by client:',
@@ -303,9 +301,8 @@ class TCPStream extends EventEmitter {
 
     if (tcpMessage.ACK && this.#tcpStage === 'syn') {
       this.#tcpStage = 'established'
-      // this is not correct todo refactor
-      this.#acknowledgmentNumber = tcpMessage.sequenceNumber // warning
-      this.#sequenceNumber = tcpMessage.acknowledgmentNumber // warning
+      // Update acknowledgment number to received sequence + 1
+      this.#acknowledgmentNumber = tcpMessage.sequenceNumber + 1
       return
     } // return
 
@@ -317,7 +314,8 @@ class TCPStream extends EventEmitter {
 
     if (tcpMessage.ACK) {
       this.#packetDeque.push(tcpMessage)
-      this.#acknowledgmentNumber += tcpMessage.data.length
+      // Update acknowledgment number to received sequence number (which already includes data length)
+      this.#acknowledgmentNumber = tcpMessage.sequenceNumber
       const respond = this.#createTCP({ ACK: true })
 
       this.emit('tcpMessage', respond)

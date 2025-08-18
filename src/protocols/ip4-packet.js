@@ -283,7 +283,7 @@ class IP4Packet {
       offset += this.#options.length
     }
 
-    const checksum = this.#calculateChecksum(buffer, offset)
+    const checksum = this.#calculateChecksum(buffer.slice(0, offset))
     buffer.writeUInt16BE(checksum, checksumOffset)
 
     this.#payload.copy(buffer, offset, 0, this.#payload.length)
@@ -292,7 +292,7 @@ class IP4Packet {
   }
 
   get payload() {
-    return this.#payload // todo copy
+    return Buffer.from(this.#payload)
   }
 
   /**

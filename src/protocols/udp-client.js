@@ -68,7 +68,10 @@ class UDPClient extends EventEmitter {
   }
 
   close() {
-    // todo destory socket
+    if (this.#udpSocket) {
+      this.#udpSocket.close()
+      this.#udpSocket = null
+    }
   }
 }
 

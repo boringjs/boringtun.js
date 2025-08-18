@@ -87,7 +87,10 @@ class DNSResolver extends EventEmitter {
 
   close() {
     clearInterval(this.#udpConnectionTimeout)
-    // destory socket
+    if (this.#udpProxySocket) {
+      this.#udpProxySocket.close()
+      this.#udpProxySocket = null
+    }
   }
 }
 
