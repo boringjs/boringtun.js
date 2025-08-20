@@ -10,6 +10,7 @@ const SOCKET_CONNECTION_TIMEOUT = 30000
 const DELTA = 1000 // todo rename
 
 class TCPStream extends EventEmitter {
+  static #socketCounter = 0
   #sourceIP = null // : String
   #destinationIP = null // : String
   #sourcePort = null // : Integer
@@ -27,7 +28,7 @@ class TCPStream extends EventEmitter {
   #delta = 0
   #id = 0
   #logger = /** @type{Logger} */ null
-  #socketDebugId = Math.random().toString().slice(2)
+  #socketDebugId = TCPStream.#socketCounter++
   /**
    * @param {Object} options
    * @param {string} options.host
@@ -195,10 +196,7 @@ class TCPStream extends EventEmitter {
       return
     }
 
-    if (
-      tcpMessage.ACK &&
-      this.#tcpStage === 'fin_client2'
-    ) {
+    if (tcpMessage.ACK && this.#tcpStage === 'fin_client2') {
       this.#logger.debug(() => [
         'grace close by client:',
         this.#acknowledgmentNumber,
