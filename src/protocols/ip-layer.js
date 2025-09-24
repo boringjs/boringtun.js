@@ -19,9 +19,12 @@ class IPLayer extends EventEmitter {
     this.#tcpContainer = new TCPContainer({ logger, getTCPSocket })
     this.#dnsResolver.on('DNSResponse', this.#emitIPv4Packet.bind(this))
     this.#udpStream.on('udpMessage', this.#emitIPv4Packet.bind(this))
-    this.#tcpContainer.on('tcpMessage', this.#emitIPv4Packet.bind(this))
+    this.#tcpContainer.on('ip4Packet', this.#emitIPv4Packet.bind(this))
   }
 
+  /**
+   * @param {IP4Packet} packet
+   */
   #emitIPv4Packet(packet) {
     this.emit('ipv4ToTunnel', packet)
   }
@@ -33,7 +36,7 @@ class IPLayer extends EventEmitter {
   }
 
   /**
-   * @param {IP4Packet}ip4Packet
+   * @param {IP4Packet} ip4Packet
    */
   send(ip4Packet) {
     if (ip4Packet.protocol === UDP) {

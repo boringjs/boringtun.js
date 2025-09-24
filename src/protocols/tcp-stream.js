@@ -37,6 +37,7 @@ class TCPStream extends EventEmitter {
    * @returns {net.Socket}
    */
   #getTCPSocket
+  #hash = null
 
   /**
    * @param {object} options
@@ -44,6 +45,7 @@ class TCPStream extends EventEmitter {
    * @param {IP4Address} options.destinationIP
    * @param {number} options.sourcePort
    * @param {number} options.destinationPort
+   * @param {string} options.hash
    */
   constructor({
     sourceIP,
@@ -53,8 +55,10 @@ class TCPStream extends EventEmitter {
     delta = DELTA,
     getTCPSocket = (options, callback) => net.connect(options, callback),
     logger,
+    hash,
   }) {
     super()
+    this.#hash = hash
     this.#sourceIP = sourceIP
     this.#destinationIP = destinationIP
     this.#sourcePort = sourcePort
@@ -109,10 +113,10 @@ class TCPStream extends EventEmitter {
 
   #onSocketError(error) {
     if (error.message.includes('ECONNRESET')) {
-      this.#emitMessage(this.#createTCP({ RST: true }))
+      this.#emitIp4Packet(this.#createTCP({ RST: true }))
       this.#tcpStage = 'reset'
       this.close()
-      this.emit('close')
+      this.#emitClose()
       return
     }
     this.#logger.error(() => [`error: "${error.message}" "${error.code}"`, error])
@@ -133,25 +137,28 @@ class TCPStream extends EventEmitter {
 
       const subData = data.slice(offsetFrom, offsetTo)
 
-      const ipPacket = this.#createTCP({
+      const ip4Packet = this.#createTCP({
         data: subData,
         ACK: true,
         PSH: offsetTo === data.length,
       })
 
-      this.emit('tcpMessage', ipPacket)
+      this.#emitIp4Packet(ip4Packet)
 
       this.#sequenceNumber += subData.length
       offsetFrom = offsetTo
     }
   }
 
-  #getRandomSequenceNumber() {
-    return crypto.randomBytes(4).readUInt32BE(0)
+  /**
+   * @param {IP4Packet} ip4Packet
+   */
+  #emitIp4Packet(ip4Packet) {
+    this.emit('ip4Packet', ip4Packet)
   }
 
-  #emitMessage(ipv4Packet) {
-    this.emit('tcpMessage', ipv4Packet)
+  #getRandomSequenceNumber() {
+    return crypto.randomBytes(4).readUInt32BE(0)
   }
 
   #finStage(tcpMessage) {
@@ -178,9 +185,9 @@ class TCPStream extends EventEmitter {
     ) {
       this.#tcpStage = 'fin_ack'
       this.#acknowledgmentNumber += 2
-      this.#emitMessage(this.#createTCP({ FIN: true }))
+      this.#emitIp4Packet(this.#createTCP({ FIN: true }))
       this.#logger.debug(() => 'grace close connection by server')
-      this.emit('close')
+      this.#emitClose()
       return
     }
 
@@ -189,9 +196,9 @@ class TCPStream extends EventEmitter {
       this.#acknowledgmentNumber += 1
 
       this.#logger.debug(() => 'send ack fin')
-      this.#emitMessage(this.#createTCP({ ACK: true }))
-      // this.#sequenceNumber += 1
-      this.#emitMessage(this.#createTCP({ FIN: true, ACK: true }))
+      this.#emitIp4Packet(this.#createTCP({ ACK: true }))
+      // this.#sequenceNumber += 1 // ?
+      this.#emitIp4Packet(this.#createTCP({ FIN: true, ACK: true }))
       this.#tcpStage = 'fin_client2'
       return
     }
@@ -204,7 +211,7 @@ class TCPStream extends EventEmitter {
         this.#sequenceNumber,
         tcpMessage.acknowledgmentNumber,
       ])
-      this.emit('close')
+      this.#emitClose()
     }
   }
 
@@ -228,7 +235,8 @@ class TCPStream extends EventEmitter {
     }
 
     while (this.#packetDeque.size) {
-      this.#socket.write(this.#packetDeque.shift().data)
+      const data = this.#packetDeque.shift().data
+      this.#socket.write(data)
     }
   }
 
@@ -254,8 +262,12 @@ class TCPStream extends EventEmitter {
   #onSocketConnect(ip4Packet) {
     clearTimeout(this.#connectionTimeout)
     this.#socketStage = 'established'
-    this.#emitMessage(ip4Packet)
+    this.#emitIp4Packet(ip4Packet)
     this.#writeDataToSocket()
+  }
+
+  #emitClose() {
+    this.emit('close')
   }
 
   /**
@@ -267,7 +279,7 @@ class TCPStream extends EventEmitter {
       this.#logger.debug(() => 'connection reset')
       this.#tcpStage = 'reset'
       this.close()
-      this.emit('close')
+      this.#emitClose()
       return
     }
 
@@ -314,9 +326,7 @@ class TCPStream extends EventEmitter {
       this.#packetDeque.push(tcpMessage)
       // Update acknowledgment number to received sequence number (which already includes data length)
       this.#acknowledgmentNumber = tcpMessage.sequenceNumber
-      const respond = this.#createTCP({ ACK: true })
-
-      this.emit('tcpMessage', respond)
+      this.#emitIp4Packet(this.#createTCP({ ACK: true }))
     } else {
       this.#logger.debug(() => 'strange socket!!!')
     }
@@ -338,7 +348,7 @@ class TCPStream extends EventEmitter {
 
     if (this.#tcpStage === 'established') {
       this.#tcpStage = 'fin_init'
-      this.#emitMessage(this.#createTCP({ FIN: true }))
+      this.#emitIp4Packet(this.#createTCP({ FIN: true }))
     }
   }
 }

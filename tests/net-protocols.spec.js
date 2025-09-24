@@ -338,7 +338,7 @@ describe('ipv4 packet', () => {
       delta: 1000,
     })
 
-    tcpStream.on('tcpMessage', (msg) => {
+    tcpStream.on('ip4Packet', (msg) => {
       expect(msg.protocol).toBe(TCP)
       lastMsgs.push(msg.getTCPMessage())
     })

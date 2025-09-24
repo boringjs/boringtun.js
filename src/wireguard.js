@@ -62,12 +62,12 @@ class Wireguard extends EventEmitter {
     return this.#listenPort
   }
 
-  #updatePeerEndpoint(peer, oldEndpoint) {
+  #updatePeerEndpoint({ peer, oldEndpoint, newEndpoint }) {
     if (oldEndpoint) {
       this.#mapEndpointIpToPeer.delete(oldEndpoint)
     }
 
-    this.#mapEndpointIpToPeer.set(peer.endpoint, peer)
+    this.#mapEndpointIpToPeer.set(newEndpoint, peer)
   }
 
   addPeer({ publicKey, allowedIPs, keepAlive = 25, endpoint }) {
@@ -92,7 +92,7 @@ class Wireguard extends EventEmitter {
 
     peer.on('writeToTunnel', this.#onWriteToTunnel.bind(this))
     peer.on('writeToIp4Layer', this.#onWriteToIPv4.bind(this))
-    peer.on('updateEndpoint', this.#updatePeerEndpoint.bind(this, peer))
+    peer.on('updateEndpoint', this.#updatePeerEndpoint.bind(this))
 
     return this
   }
@@ -111,6 +111,9 @@ class Wireguard extends EventEmitter {
     // todo: stop peers
   }
 
+  /**
+   * @param {IPv4Packet} ipv4Packet
+   */
   #onMessageFromIPLayer(ipv4Packet) {
     const peer = this.#route(ipv4Packet.destinationIP)
     if (!peer) {
@@ -120,14 +123,22 @@ class Wireguard extends EventEmitter {
     peer.write(ipv4Packet.toBuffer())
   }
 
+  /**
+   * @param {WriteToTunnelPayload} payload
+   */
   #onWriteToTunnel({ address, port, data }) {
-    this.#server.send(data, port, address, (error) => {
-      if (error) {
-        this.#logger.error(() => error)
-      }
-    })
+    this.#server.send(data, port, address, this.#onWriteToTunnelError.bind(this))
   }
 
+  #onWriteToTunnelError(error) {
+    if (error) {
+      this.#logger.error(() => error)
+    }
+  }
+
+  /**
+   * @param {Buffer} data
+   */
   #onWriteToIPv4(data) {
     const ipv4Packet = new IPv4Packet(data)
     const peer = this.#route(ipv4Packet.destinationIP)

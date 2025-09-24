@@ -53,11 +53,16 @@ class TCPContainer extends EventEmitter {
       })
       this.#tcpConnections.set(hash, tcpStream)
 
-      tcpStream.on('tcpMessage', this.emit.bind(this, 'tcpMessage'))
+      tcpStream.on('ip4Packet', this.#onIp4Packet.bind(this))
       tcpStream.once('close', this.#tcpConnections.delete.bind(this.#tcpConnections, hash))
     }
 
     return this.#tcpConnections.get(hash)
+  }
+
+
+  #onIp4Packet(ipv4Packet) {
+    this.emit('ipv4', ipv4Packet)
   }
 
   close() {

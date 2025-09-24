@@ -6,6 +6,25 @@ const Logger = require('./utils/logger.js')
 const TICK_INTERVAL = 100
 const FORCE_HADNSHAKE_DELTA = 1000
 
+/**
+ * @typedef {Object} WriteToTunnelPayload
+ * @property {string} address
+ * @property {number} port
+ * @property {(Buffer|string)} data
+ */
+
+/**
+ * @event Peer#writeToTunnel
+ * @type {function(WriteToTunnelPayload): void}
+ */
+
+/**
+ * A peer that can send/receive data over a tunnel.
+ *
+ *
+ * @extends EventEmitter
+ * @fires Peer#writeToTunnel
+ */
 class Peer extends EventEmitter {
   #allowedIPs = /** @type{IP4Address[]}*/ []
   #tunnel = /** @type{WireguardTunnel|null} */ null
@@ -66,6 +85,20 @@ class Peer extends EventEmitter {
     return ''
   }
 
+  /*
+   * @param {WriteToTunnelPayload} payload
+   */
+  #emitWriteToTunnel({ address, port, data }) {
+    this.emit('writeToTunnel', { address, port, data })
+  }
+
+  /**
+   * @param {Buffer} data
+   */
+  #emitWriteToIPv4Layer(data) {
+    this.emit('writeToIp4Layer', data)
+  }
+
   /**
    * @param {IP4Address} ip
    */
@@ -74,10 +107,10 @@ class Peer extends EventEmitter {
   }
 
   #tick() {
-    this.routing(this.#tunnel.tick())
+    this.routing({ src: 'tick', ...this.#tunnel.tick() }) // todo create src in wireguard
   }
 
-  routing({ data, type }) {
+  routing({ data, type, src }) {
     if (type === WireguardTunnelWrapper.WIREGUARD_DONE) {
       // do nothing
       return
@@ -90,17 +123,17 @@ class Peer extends EventEmitter {
       const address = this.#endpointAddress.toString()
       const port = this.#endpointPort
 
-      this.emit('writeToTunnel', { address, port, data })
+      this.#emitWriteToTunnel({ address, port, data })
       return
     }
 
     if (type === WireguardTunnelWrapper.WIREGUARD_ERROR) {
-      this.#logger.error('Error on wireguard')
+      this.#logger.error(`Error on wireguard. Src: ${src}`)
       return
     }
 
     if (type === WireguardTunnelWrapper.WRITE_TO_TUNNEL_IPV4) {
-      this.emit('writeToIp4Layer', data)
+      this.#emitWriteToIPv4Layer(data)
       return
     }
 
@@ -112,8 +145,12 @@ class Peer extends EventEmitter {
     throw new Error('Unknown operation')
   }
 
+  #emitUpdateEndpoint({ peer = this, oldEndpoint, newEndpoint = this.endpoint }) {
+    this.emit('updateEndpoint', { peer, oldEndpoint, newEndpoint })
+  }
+
   read(msg, address, port) {
-    const result = this.#tunnel.read(msg)
+    const result = { ...this.#tunnel.read(msg), src: 'read' } // todo: move to c++
 
     const isHandshake = msg.readUInt32LE(0) === 1 && msg.length > 90
 
@@ -125,7 +162,7 @@ class Peer extends EventEmitter {
 
       this.endpointAddress = address
       this.endpointPort = port
-      this.emit('updateEndpoint', oldEndpoint)
+      this.#emitUpdateEndpoint({ oldEndpoint })
     }
 
     if (!isGood) {
@@ -139,7 +176,7 @@ class Peer extends EventEmitter {
   }
 
   write(msg) {
-    this.routing(this.#tunnel.write(msg))
+    this.routing({ ...this.#tunnel.write(msg), src: 'write' }) // todo: move to c+++
   }
 
   /**
@@ -173,7 +210,7 @@ class Peer extends EventEmitter {
       return
     }
 
-    this.routing(this.#tunnel.forceHandshake())
+    this.routing({ ...this.#tunnel.forceHandshake(), src: 'forceHandshake' }) // todo move to c++
   }
 
   getStat() {
