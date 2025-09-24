@@ -48,14 +48,27 @@ class Peer extends EventEmitter {
       index,
     })
 
-    this.#tickIntervalId = setInterval(this.#tick.bind(this), TICK_INTERVAL)
-
     if (endpointAddress && endpointPort) {
       this.#endpointPort = endpointPort
       this.#endpointAddress = endpointAddress
     }
     // todo create tick and test it
     // todo emit handshake
+  }
+
+  #startTick() {
+    if (this.#tickIntervalId) {
+      this.#logger.debug(() => `Tick interval was set ${this.#publicKey}`)
+      return
+    }
+    this.#logger.debug(() => `Start tick interval ${this.#publicKey}`)
+    this.#tickIntervalId = setInterval(this.#tick.bind(this), TICK_INTERVAL)
+  }
+
+  #stopTick() {
+    this.#logger.debug(() => `Stop tick interval for ${this.#publicKey}`)
+    clearInterval(this.#tickIntervalId)
+    this.#tickIntervalId = null
   }
 
   get endpointAddress() {
@@ -129,6 +142,9 @@ class Peer extends EventEmitter {
 
     if (type === WireguardTunnelWrapper.WIREGUARD_ERROR) {
       this.#logger.error(`Error on wireguard. Src: ${src}`)
+      if (src === 'tick') {
+        this.#stopTick()
+      }
       return
     }
 
@@ -163,6 +179,7 @@ class Peer extends EventEmitter {
       this.endpointAddress = address
       this.endpointPort = port
       this.#emitUpdateEndpoint({ oldEndpoint })
+      this.#startTick()
     }
 
     if (!isGood) {
@@ -209,6 +226,8 @@ class Peer extends EventEmitter {
     if (this.#lastForceHandshake + FORCE_HADNSHAKE_DELTA > Date.now()) {
       return
     }
+
+    this.#startTick()
 
     this.routing({ ...this.#tunnel.forceHandshake(), src: 'forceHandshake' }) // todo move to c++
   }
