@@ -6,6 +6,7 @@ const Peer = require('./peer.js')
 const IP4Address = require('./protocols/ip4-address.js')
 const IPv4Packet = require('./protocols/ip4-packet.js')
 const Logger = require('./utils/logger.js')
+const { TCP } = require('./protocols/constants')
 
 class Wireguard extends EventEmitter {
   #ipLayer = /** @type{IPLayer} */ null
@@ -140,18 +141,19 @@ class Wireguard extends EventEmitter {
    * @param {Buffer} data
    */
   #onWriteToIPv4(data) {
-    const ipv4Packet = new IPv4Packet(data)
-    const peer = this.#route(ipv4Packet.destinationIP)
+    const ip4Packet = new IPv4Packet(data)
+    const peer = this.#route(ip4Packet.destinationIP)
     if (peer) {
-      return peer.write(ipv4Packet.toBuffer())
+      return peer.write(ip4Packet.toBuffer())
     }
 
-    this.#logger.debug(
-      () =>
-        `ip layer (${ipv4Packet.protocol}): ${ipv4Packet.sourceIP} -> ${ipv4Packet.destinationIP} (${data.length} bytes): ${data.toString('hex')}`,
-    )
+    this.#logger.debug(() => {
+      const tcpMsg = ip4Packet.protocol === TCP ? JSON.stringify(ip4Packet.getTCPMessage().debugView(), null, 2) : ''
 
-    this.#ipLayer.send(ipv4Packet)
+      return `to ip layer (${ip4Packet.protocol}): ${ip4Packet.sourceIP} -> ${ip4Packet.destinationIP} (${tcpMsg})`
+    })
+
+    this.#ipLayer.send(ip4Packet)
   }
 
   /**

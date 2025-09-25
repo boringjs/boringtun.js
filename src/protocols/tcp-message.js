@@ -83,6 +83,28 @@ class TCPMessage {
     throw new TypeError('Invalid input parameter')
   }
 
+  debugView() {
+    return {
+      source: `${this.#sourceIP}:${this.#sourcePort}`,
+      destination: `${this.#destinationIP}:${this.#destinationPort}`,
+      sequenceNumber: this.#sequenceNumber,
+      acknowledgmentNumber: this.#acknowledgmentNumber,
+      dataOffset: this.#dataOffset,
+      URG: this.#URG,
+      ACK: this.#ACK,
+      PSH: this.#PSH,
+      RST: this.#RST,
+      SYN: this.#SYN,
+      FIN: this.#FIN,
+      window: this.#window,
+      checksum: this.#checksum,
+      urgentPointer: this.#urgentPointer,
+      padding: this.#padding,
+      dataLen: this.#data.length,
+      data: this.#data.toString('hex'),
+    }
+  }
+
   #calculateTCPChecksum(buffer) {
     if (!this.#sourceIP || !this.#destinationIP) {
       return 0

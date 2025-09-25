@@ -23,10 +23,16 @@ class IPLayer extends EventEmitter {
   }
 
   /**
-   * @param {IP4Packet} packet
+   * @param {IP4Packet} ip4Packet
    */
-  #emitIPv4Packet(packet) {
-    this.emit('ipv4ToTunnel', packet)
+  #emitIPv4Packet(ip4Packet) {
+    this.#logger.debug(() => {
+      const tcpMsg = ip4Packet.protocol === TCP ? JSON.stringify(ip4Packet.getTCPMessage().debugView(), null, 2) : ''
+
+      return `from ip layer (${ip4Packet.protocol}): ${ip4Packet.sourceIP} -> ${ip4Packet.destinationIP} ${tcpMsg}`
+    })
+
+    this.emit('ipv4ToTunnel', ip4Packet)
   }
 
   close() {
