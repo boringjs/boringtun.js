@@ -60,9 +60,8 @@ class TCPContainer extends EventEmitter {
     return this.#tcpConnections.get(hash)
   }
 
-
-  #onIp4Packet(ipv4Packet) {
-    this.emit('ipv4', ipv4Packet)
+  #onIp4Packet(ip4Packet) {
+    this.emit('ip4Packet', ip4Packet)
   }
 
   close() {
