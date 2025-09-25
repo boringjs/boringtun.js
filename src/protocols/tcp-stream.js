@@ -154,6 +154,8 @@ class TCPStream extends EventEmitter {
    * @param {IP4Packet} ip4Packet
    */
   #emitIp4Packet(ip4Packet) {
+    // console.log(ip4Packet.debugView())
+    // this.#sequenceNumber += ip4Packet.getTCPMessage().data.length
     this.emit('ip4Packet', ip4Packet)
   }
 
@@ -271,11 +273,10 @@ class TCPStream extends EventEmitter {
   }
 
   /**
-   * @param {IP4Packet} ip4Packet
-   * @param {TCPMessage} tcpMessage
+   * @param {TCPMessage} incomingTCPMessage
    */
-  send(tcpMessage) {
-    if (tcpMessage.RST) {
+  send(incomingTCPMessage) {
+    if (incomingTCPMessage.RST) {
       this.#logger.debug(() => 'connection reset')
       this.#tcpStage = 'reset'
       this.close()
@@ -284,48 +285,48 @@ class TCPStream extends EventEmitter {
     }
 
     if (this.#tcpStage.includes('fin')) {
-      return this.#finStage(tcpMessage)
+      return this.#finStage(incomingTCPMessage)
     }
 
-    if (tcpMessage.FIN) {
+    if (incomingTCPMessage.FIN) {
       this.#logger.debug(() => `fin client ${this.#socketDebugId}`)
       this.#tcpStage = 'fin_client'
-      this.#finStage(tcpMessage)
+      this.#finStage(incomingTCPMessage)
       this.close()
       return
     }
 
-    if (tcpMessage.SYN) {
+    if (incomingTCPMessage.SYN) {
       if (this.#tcpStage !== 'new') {
         return
       }
 
       this.#tcpStage = 'syn'
       this.#sequenceNumber = this.#getRandomSequenceNumber()
-      this.#acknowledgmentNumber = tcpMessage.sequenceNumber + 1
+      this.#acknowledgmentNumber = incomingTCPMessage.sequenceNumber + 1
       const ipv4TCPSynAckMessage = this.#createTCP({ SYN: true, ACK: true })
 
       this.#connect(ipv4TCPSynAckMessage)
       return
     }
 
-    if (tcpMessage.ACK && this.#tcpStage === 'syn') {
+    if (incomingTCPMessage.ACK && this.#tcpStage === 'syn') {
       this.#tcpStage = 'established'
       // Update acknowledgment number to received sequence + 1
-      this.#acknowledgmentNumber = tcpMessage.sequenceNumber + 1
+      this.#acknowledgmentNumber = incomingTCPMessage.sequenceNumber + 1
       return
     } // return
 
-    if (tcpMessage.ACK && tcpMessage.data.length === 0) {
-      this.#sequenceNumber = tcpMessage.acknowledgmentNumber
+    if (incomingTCPMessage.ACK && incomingTCPMessage.data.length === 0) {
+      this.#sequenceNumber = incomingTCPMessage.acknowledgmentNumber
       this.#writeDataToSocket()
       return
     } // return
 
-    if (tcpMessage.ACK) {
-      this.#packetDeque.push(tcpMessage)
+    if (incomingTCPMessage.ACK) {
+      this.#packetDeque.push(incomingTCPMessage)
       // Update acknowledgment number to received sequence number (which already includes data length)
-      this.#acknowledgmentNumber = tcpMessage.sequenceNumber
+      this.#acknowledgmentNumber = incomingTCPMessage.sequenceNumber
       this.#emitIp4Packet(this.#createTCP({ ACK: true }))
     } else {
       this.#logger.debug(() => 'strange socket!!!')
