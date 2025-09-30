@@ -21,7 +21,7 @@ class Wireguard extends EventEmitter {
   #logLevel = 0
   #logger
 
-  constructor({ privateKey, listenPort, address, logLevel = 0, logger, getTCPSocket }) {
+  constructor({ privateKey, listenPort, address, logLevel = 0, logger = new Logger({ logLevel }) }) {
     if (typeof privateKey !== 'string' || !checkValidKey(privateKey)) {
       throw new Error('Invalid privateKey')
     }
@@ -29,6 +29,16 @@ class Wireguard extends EventEmitter {
     if (typeof listenPort !== 'number' && listenPort > 0 && listenPort << 15) {
       throw new Error('Invalid listenPort')
     }
+
+    if (
+      typeof logger.info !== 'function' ||
+      typeof logger.log !== 'function' ||
+      typeof logger.error !== 'function' ||
+      typeof logger.debug !== 'function'
+    ) {
+      throw new Error('Invalid logger')
+    }
+
     super()
 
     this.#privateKey = privateKey
