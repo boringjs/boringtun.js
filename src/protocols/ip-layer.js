@@ -11,12 +11,12 @@ class IPLayer extends EventEmitter {
   #tcpContainer = /** @type{TCPContainer} */ null
   #logger = /** @type{Logger}*/ null
 
-  constructor({ logger, getTCPSocket } = {}) {
+  constructor({ logger, tcpSocketFactory } = {}) {
     super()
     this.#logger = logger || new Logger({ logLevel: 0 })
     this.#dnsResolver = new DNSResolver({ logger })
     this.#udpStream = new UDPStream({ logger })
-    this.#tcpContainer = new TCPContainer({ logger, getTCPSocket })
+    this.#tcpContainer = new TCPContainer({ logger, tcpSocketFactory })
     this.#dnsResolver.on('DNSResponse', this.#emitIPv4Packet.bind(this))
     this.#udpStream.on('udpMessage', this.#emitIPv4Packet.bind(this))
     this.#tcpContainer.on('ip4Packet', this.#emitIPv4Packet.bind(this))

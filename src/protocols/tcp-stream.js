@@ -36,7 +36,7 @@ class TCPStream extends EventEmitter {
    * @param {Function} callback
    * @returns {net.Socket}
    */
-  #getTCPSocket
+  #tcpSocketFactory
   #hash = null
 
   /**
@@ -53,7 +53,7 @@ class TCPStream extends EventEmitter {
     sourcePort,
     destinationPort,
     delta = DELTA,
-    getTCPSocket = (options, callback) => net.connect(options, callback),
+    tcpSocketFactory = (options, callback) => net.connect(options, callback),
     logger,
     hash,
   }) {
@@ -64,7 +64,7 @@ class TCPStream extends EventEmitter {
     this.#sourcePort = sourcePort
     this.#destinationPort = destinationPort
     this.#delta = delta
-    this.#getTCPSocket = getTCPSocket
+    this.#tcpSocketFactory = tcpSocketFactory
     this.#logger = logger || new Logger()
   }
 
@@ -255,7 +255,7 @@ class TCPStream extends EventEmitter {
 
     const port = this.#destinationPort
     const host = this.#destinationIP.toString()
-    this.#socket = this.#getTCPSocket({ host, port }, this.#onSocketConnect.bind(this, ipv4Packet))
+    this.#socket = this.#tcpSocketFactory({ host, port }, this.#onSocketConnect.bind(this, ipv4Packet))
     this.#socket.on('data', (this.#onSocketDataBind = this.#onSocketData.bind(this)))
     this.#socket.on('error', (this.#onSocketErrorBind = this.#onSocketError.bind(this)))
     this.#socket.on('close', (this.#closeBind = this.close.bind(this)))

@@ -19,7 +19,9 @@ class Wireguard extends EventEmitter {
   #mapEndpointIpToPeer = /** @type{Map<string,Peer>} */ new Map()
   #index = 1
   #logLevel = 0
-  #logger
+  #logger /** @type {Logger} */ = null
+  #TCPSocketFactory
+  #UDPSocketFactory
 
   constructor({ privateKey, listenPort, address, logLevel = 0, logger = new Logger({ logLevel }) }) {
     if (typeof privateKey !== 'string' || !checkValidKey(privateKey)) {
@@ -45,11 +47,8 @@ class Wireguard extends EventEmitter {
     this.#publicKey = getPublicKeyFrom(privateKey)
     this.#listenPort = listenPort
     this.#address = new IP4Address(address)
-    this.#createServerListeners()
     this.#logLevel = logLevel
-    this.#logger = logger || new Logger({ logLevel })
-    this.#ipLayer = new IPLayer({ logger: this.#logger, getTCPSocket })
-    this.#ipLayer.on('ipv4ToTunnel', this.#onMessageFromIPLayer.bind(this))
+    this.#logger = logger
   }
 
   /**
@@ -71,6 +70,30 @@ class Wireguard extends EventEmitter {
    */
   get listenPort() {
     return this.#listenPort
+  }
+
+  addTCPSocketFactory(tcpSocketFactory) {
+    if (typeof tcpSocketFactory !== 'function') {
+      throw new Error('Invalid tcpSocketFactory')
+    }
+    if (this.#TCPSocketFactory) {
+      throw new Error('TCPSocketFactory already set')
+    }
+    this.#logger.debug(() => `Add TCPSocketFactory`)
+    this.#TCPSocketFactory = tcpSocketFactory
+    return this
+  }
+
+  addUDPFactory(udpSocketFactory) {
+    if (typeof udpSocketFactory !== 'function') {
+      throw new Error('Invalid udpSocketFactory')
+    }
+    if (this.#UDPSocketFactory) {
+      throw new Error('UDPSocketFactory already set')
+    }
+    this.#logger.debug(() => `Add UDPSocketFactory`)
+    this.#UDPSocketFactory = udpSocketFactory
+    return this
   }
 
   #updatePeerEndpoint({ peer, oldEndpoint, newEndpoint }) {
@@ -109,7 +132,14 @@ class Wireguard extends EventEmitter {
   }
 
   listen() {
+    this.#createServerListeners()
+    this.#ipLayer = new IPLayer({
+      logger: this.#logger,
+      tcpSocketFactory: this.#TCPSocketFactory,
+    })
+    this.#ipLayer.on('ipv4ToTunnel', this.#onMessageFromIPLayer.bind(this))
     this.#server.bind(this.#listenPort, this.#onListening.bind(this))
+    this.#logger.info(() => `Start listen on port ${this.#listenPort}`)
   }
 
   #route(ip) {

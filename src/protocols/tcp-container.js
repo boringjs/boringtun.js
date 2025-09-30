@@ -6,12 +6,12 @@ const Logger = require('../utils/logger.js')
 class TCPContainer extends EventEmitter {
   #tcpConnections = /** @type{Map<string, TCPStream>} */ new Map() // Map (maps connection identifiers to TCPStream instances)
   #logger = /** @type{Logger} */ null
-  #getTCPSocket
+  #tcpSocketFactory
 
-  constructor({ logger, getTCPSocket } = {}) {
+  constructor({ logger, tcpSocketFactory } = {}) {
     super()
     this.#logger = logger || new Logger()
-    this.#getTCPSocket = getTCPSocket
+    this.#tcpSocketFactory = tcpSocketFactory
   }
 
   send(ipv4Packet, tcpMessage) {
@@ -49,7 +49,7 @@ class TCPContainer extends EventEmitter {
         sourcePort,
         destinationPort,
         logger: this.#logger,
-        getTCPSocket: this.#getTCPSocket,
+        tcpSocketFactory: this.#tcpSocketFactory,
       })
       this.#tcpConnections.set(hash, tcpStream)
 
