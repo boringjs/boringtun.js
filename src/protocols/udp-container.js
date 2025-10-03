@@ -2,13 +2,15 @@ const { EventEmitter } = require('events')
 const UDPClient = require('./udp-client.js')
 const Logger = require('../utils/logger.js')
 
-class UDPStream extends EventEmitter {
+class UdpContainer extends EventEmitter {
   #udpClients = /** @type{Map<string, UDPClient>}*/ new Map()
+  #udpSocketFactory = null
   #logger
 
-  constructor({ logger = console }) {
+  constructor({ logger = new Logger(), udpSocketFactory }) {
     super()
-    this.#logger = logger || new Logger()
+    this.#logger = logger
+    this.#udpSocketFactory = udpSocketFactory
   }
 
   /**
@@ -29,6 +31,8 @@ class UDPStream extends EventEmitter {
         sourcePort,
         destinationPort,
         destinationIP,
+        logger: this.#logger,
+        udpSocketFactory: this.#udpSocketFactory,
       })
       this.#udpClients.set(hash, client)
       client.on('close', this.#udpClients.delete.bind(this.#udpClients, hash))
@@ -45,4 +49,4 @@ class UDPStream extends EventEmitter {
   }
 }
 
-module.exports = UDPStream
+module.exports = UdpContainer

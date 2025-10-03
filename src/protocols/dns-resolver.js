@@ -45,7 +45,11 @@ class DNSResolver extends EventEmitter {
     if (!this.#dnsRequestMap.has(id)) {
       return
     }
+
     const client = this.#dnsRequestMap.get(id)
+
+    this.#dnsRequestMap.clear(id)
+
     const packet = new IP4Packet({
       protocol: UDP,
       sourceIP: address,
@@ -57,8 +61,9 @@ class DNSResolver extends EventEmitter {
       udpData: message,
     })
 
-    this.#logger.debug('emit dns response')
+    // this.#logger.debug('emit dns response')
     this.emit('DNSResponse', packet)
+    this.emit('DNSResponseParsed', { request: client.initMessage, response: dns })
   }
 
   /**
@@ -74,13 +79,14 @@ class DNSResolver extends EventEmitter {
     }
 
     this.#dnsRequestMap.set(dns.id, {
+      initMessage: dns,
       expire: Date.now() + TIME_DNS_EXPIRE,
       sourcePort: udpMessage.sourcePort,
       sourceIP: ip4Packet.sourceIP,
     })
 
     this.#logger.debug(
-      () => `send request ${udpMessage.destinationIP}:${udpMessage.destinationPort} ${udpMessage.data.length} bytes`,
+      () => `send DNS request ${udpMessage.destinationIP}:${udpMessage.destinationPort} ${udpMessage.data.length} bytes`,
     )
     this.#udpProxySocket.send(udpMessage.data, udpMessage.destinationPort, udpMessage.destinationIP.toString())
   }

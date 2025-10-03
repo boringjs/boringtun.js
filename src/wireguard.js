@@ -16,6 +16,7 @@ class Wireguard extends EventEmitter {
   #server /** @type {Socket}*/ = dgram.createSocket('udp4')
   #address = new IP4Address(0)
   #peers = /** @type{Peer[]}*/ []
+  #peersMap = /** @type{Map<string, Peer>}*/ new Map()
   #mapEndpointIpToPeer = /** @type{Map<string,Peer>} */ new Map()
   #index = 1
   #logLevel = 0
@@ -51,6 +52,10 @@ class Wireguard extends EventEmitter {
     this.#logger = logger
   }
 
+  getPeers() {
+    return this.#peers.map((peer) => peer.endpoint)
+  }
+
   /**
    * @return {string}
    */
@@ -72,6 +77,10 @@ class Wireguard extends EventEmitter {
     return this.#listenPort
   }
 
+  getPeerByKey(key){
+   return this.#peersMap.get(key)
+  }
+
   addTCPSocketFactory(tcpSocketFactory) {
     if (typeof tcpSocketFactory !== 'function') {
       throw new Error('Invalid tcpSocketFactory')
@@ -79,20 +88,24 @@ class Wireguard extends EventEmitter {
     if (this.#TCPSocketFactory) {
       throw new Error('TCPSocketFactory already set')
     }
-    this.#logger.debug(() => `Add TCPSocketFactory`)
+
+    // this.#logger.debug(() => `Add TCPSocketFactory`)
     this.#TCPSocketFactory = tcpSocketFactory
+
     return this
   }
 
-  addUDPFactory(udpSocketFactory) {
+  addUDPSocketFactory(udpSocketFactory) {
     if (typeof udpSocketFactory !== 'function') {
       throw new Error('Invalid udpSocketFactory')
     }
     if (this.#UDPSocketFactory) {
       throw new Error('UDPSocketFactory already set')
     }
-    this.#logger.debug(() => `Add UDPSocketFactory`)
+
+    // this.#logger.debug(() => `Add UDPSocketFactory`)
     this.#UDPSocketFactory = udpSocketFactory
+
     return this
   }
 
@@ -104,7 +117,7 @@ class Wireguard extends EventEmitter {
     this.#mapEndpointIpToPeer.set(newEndpoint, peer)
   }
 
-  addPeer({ publicKey, allowedIPs, keepAlive = 25, endpoint }) {
+  addPeer({ publicKey, allowedIPs, keepAlive = 25, endpoint, name }) {
     const [endpointAddress, endpointPort] = (endpoint || '').split(':')
 
     const peer = new Peer({
@@ -116,8 +129,10 @@ class Wireguard extends EventEmitter {
       endpointPort,
       endpointAddress,
       logger: this.#logger,
+      name,
     })
 
+    this.#peersMap.set(publicKey, peer)
     this.#peers.push(peer)
 
     if (peer.endpoint) {
@@ -136,6 +151,7 @@ class Wireguard extends EventEmitter {
     this.#ipLayer = new IPLayer({
       logger: this.#logger,
       tcpSocketFactory: this.#TCPSocketFactory,
+      UDPSocketFactory: this.#UDPSocketFactory,
     })
     this.#ipLayer.on('ipv4ToTunnel', this.#onMessageFromIPLayer.bind(this))
     this.#server.bind(this.#listenPort, this.#onListening.bind(this))
@@ -187,11 +203,11 @@ class Wireguard extends EventEmitter {
       return peer.write(ip4Packet.toBuffer())
     }
 
-    this.#logger.debug(() => {
-      const tcpMsg = ip4Packet.protocol === TCP ? JSON.stringify(ip4Packet.getTCPMessage().debugView(), null, 2) : ''
+    // this.#logger.debug(() => {
+    //   const tcpMsg = ip4Packet.protocol === TCP ? JSON.stringify(ip4Packet.getTCPMessage().debugView(), null, 2) : ''
 
-      return `to ip layer (${ip4Packet.protocol}): ${ip4Packet.sourceIP} -> ${ip4Packet.destinationIP} (${tcpMsg})`
-    })
+      // return `to ip layer (${ip4Packet.protocol}): ${ip4Packet.sourceIP} -> ${ip4Packet.destinationIP} (${tcpMsg})`
+    // })
 
     this.#ipLayer.send(ip4Packet)
   }

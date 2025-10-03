@@ -213,7 +213,7 @@ class UDPMessage {
   }
 
   getDNSMessage() {
-    if(this.isDnsRequest() || this.isDnsResponse()){
+    if (this.isDnsRequest() || this.isDnsResponse()) {
       return new DNSMessage(this.#data)
     }
 

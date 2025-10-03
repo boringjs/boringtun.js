@@ -53,7 +53,7 @@ class TCPStream extends EventEmitter {
     sourcePort,
     destinationPort,
     delta = DELTA,
-    tcpSocketFactory = (options, callback) => net.connect(options, callback),
+    tcpSocketFactory = ({ sourceIP, sourcePort, ...options }, callback) => net.connect(options, callback),
     logger,
     hash,
   }) {
@@ -180,11 +180,7 @@ class TCPStream extends EventEmitter {
     }
 
     // wait fin from client
-    if (
-      this.#tcpStage === 'fin_ack' &&
-      tcpMessage.FIN &&
-      this.#acknowledgmentNumber === tcpMessage.sequenceNumber
-    ) {
+    if (this.#tcpStage === 'fin_ack' && tcpMessage.FIN && this.#acknowledgmentNumber === tcpMessage.sequenceNumber) {
       this.#acknowledgmentNumber += 1
       this.#emitIp4Packet(this.#createTCP({ ACK: true }))
       this.#logger.debug(() => 'grace close connection by server')
@@ -253,9 +249,14 @@ class TCPStream extends EventEmitter {
 
     this.#logger.debug(() => `connecting: ${this.#destinationIP.toString()}:${this.#destinationPort}`)
 
+    const sourceIP = this.#sourceIP
+    const sourcePort = this.#sourcePort
     const port = this.#destinationPort
     const host = this.#destinationIP.toString()
-    this.#socket = this.#tcpSocketFactory({ host, port }, this.#onSocketConnect.bind(this, ipv4Packet))
+    this.#socket = this.#tcpSocketFactory(
+      { host, port, sourcePort, sourceIP },
+      this.#onSocketConnect.bind(this, ipv4Packet),
+    )
     this.#socket.on('data', (this.#onSocketDataBind = this.#onSocketData.bind(this)))
     this.#socket.on('error', (this.#onSocketErrorBind = this.#onSocketError.bind(this)))
     this.#socket.on('close', (this.#closeBind = this.close.bind(this)))
@@ -263,16 +264,10 @@ class TCPStream extends EventEmitter {
 
   #onSocketConnect(ip4Packet) {
     clearTimeout(this.#connectionTimeout)
-    // setTimeout(() => {
-      // try{
-      this.#socketStage = 'established'
-      this.#emitIp4Packet(ip4Packet)
-      this.#writeDataToSocket()
-      // } catch(e) {
-        // this.#logger.error(() => `error: ${e.message}`)
-      // }
-    // }, 10)
- }
+    this.#socketStage = 'established'
+    this.#emitIp4Packet(ip4Packet)
+    this.#writeDataToSocket()
+  }
 
   #emitClose() {
     this.emit('close')
@@ -325,7 +320,7 @@ class TCPStream extends EventEmitter {
     } // return
 
     if (incomingTCPMessage.ACK && incomingTCPMessage.data.length === 0) {
-      if(incomingTCPMessage.acknowledgmentNumber > this.#sequenceNumber) {
+      if (incomingTCPMessage.acknowledgmentNumber > this.#sequenceNumber) {
         return
       }
       this.#writeDataToSocket()
@@ -335,8 +330,12 @@ class TCPStream extends EventEmitter {
     if (incomingTCPMessage.ACK) {
       this.#packetDeque.push(incomingTCPMessage)
       // Update acknowledgment number to received sequence number (which already includes data length)
-      // old: this.#acknowledgmentNumber = incomingTCPMessage.sequenceNumber 
-      this.#acknowledgmentNumber = incomingTCPMessage.sequenceNumber + incomingTCPMessage.data.length + (incomingTCPMessage.FIN ? 1 : 0) + (incomingTCPMessage.SYN ? 1 : 0) // replaced
+      // old: this.#acknowledgmentNumber = incomingTCPMessage.sequenceNumber
+      this.#acknowledgmentNumber =
+        incomingTCPMessage.sequenceNumber +
+        incomingTCPMessage.data.length +
+        (incomingTCPMessage.FIN ? 1 : 0) +
+        (incomingTCPMessage.SYN ? 1 : 0) // replaced
       this.#emitIp4Packet(this.#createTCP({ ACK: true }))
     } else {
       this.#logger.debug(() => 'strange socket!!!')

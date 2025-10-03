@@ -34,12 +34,24 @@ class Peer extends EventEmitter {
   #tickIntervalId = null
   #publicKey = ''
   #lastForceHandshake = 0
+  #name = ''
 
-  constructor({ logger, privateServerKey, publicKey, allowedIPs, keepAlive, index, endpointAddress, endpointPort }) {
+  constructor({
+    logger,
+    privateServerKey,
+    publicKey,
+    allowedIPs,
+    keepAlive,
+    index,
+    endpointAddress,
+    endpointPort,
+    name,
+  }) {
     super()
     this.#allowedIPs = allowedIPs.split(',').map((ip) => new IP4Address(ip))
     this.#logger = logger || new Logger()
     this.#publicKey = publicKey
+    this.#name = name || this.#publicKey
 
     this.#tunnel = new WireguardTunnelWrapper({
       privateKey: privateServerKey,
@@ -58,10 +70,10 @@ class Peer extends EventEmitter {
 
   #startTick() {
     if (this.#tickIntervalId) {
-      this.#logger.debug(() => `Tick interval was set ${this.#publicKey}`)
+      // this.#logger.debug(() => `Tick interval was set ${this.#publicKey}`)
       return
     }
-    this.#logger.debug(() => `Start tick interval ${this.#publicKey}`)
+    // this.#logger.debug(() => `Start tick interval ${this.#publicKey}`)
     this.#tickIntervalId = setInterval(this.#tick.bind(this), TICK_INTERVAL)
   }
 
@@ -81,6 +93,10 @@ class Peer extends EventEmitter {
 
   set endpointPort(v) {
     this.#endpointPort = v
+  }
+
+  get name() {
+    return this.#name
   }
 
   /**

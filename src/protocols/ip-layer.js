@@ -1,24 +1,24 @@
 const { EventEmitter } = require('events')
 const DNSResolver = require('./dns-resolver.js')
-const UDPStream = require('./udp-stream.js')
+const UDPContainer = require('./udp-container.js')
 const TCPContainer = require('./tcp-container.js')
 const { TCP, UDP } = require('./constants.js')
 const Logger = require('../utils/logger.js')
 
 class IPLayer extends EventEmitter {
   #dnsResolver = /** @type{DNSResolver}*/ null
-  #udpStream = /** @type{UDPStream}*/ null
+  #udpContainer = /** @type{UDPContainer}*/ null
   #tcpContainer = /** @type{TCPContainer} */ null
   #logger = /** @type{Logger}*/ null
 
-  constructor({ logger, tcpSocketFactory } = {}) {
+  constructor({ logger, tcpSocketFactory, udpSocketFactory } = {}) {
     super()
     this.#logger = logger || new Logger({ logLevel: 0 })
     this.#dnsResolver = new DNSResolver({ logger })
-    this.#udpStream = new UDPStream({ logger })
+    this.#udpContainer = new UDPContainer({ logger, udpSocketFactory })
     this.#tcpContainer = new TCPContainer({ logger, tcpSocketFactory })
     this.#dnsResolver.on('DNSResponse', this.#emitIPv4Packet.bind(this))
-    this.#udpStream.on('udpMessage', this.#emitIPv4Packet.bind(this))
+    this.#udpContainer.on('udpMessage', this.#emitIPv4Packet.bind(this))
     this.#tcpContainer.on('ip4Packet', this.#emitIPv4Packet.bind(this))
   }
 
@@ -26,18 +26,20 @@ class IPLayer extends EventEmitter {
    * @param {IP4Packet} ip4Packet
    */
   #emitIPv4Packet(ip4Packet) {
+    /*
     this.#logger.debug(() => {
       const tcpMsg = ip4Packet.protocol === TCP ? JSON.stringify(ip4Packet.getTCPMessage().debugView(), null, 2) : ''
 
       return `from ip layer (${ip4Packet.protocol}): ${ip4Packet.sourceIP} -> ${ip4Packet.destinationIP} ${tcpMsg}`
     })
+     */
 
     this.emit('ipv4ToTunnel', ip4Packet)
   }
 
   close() {
     this.#dnsResolver.close()
-    this.#udpStream.close()
+    this.#udpContainer.close()
     this.#tcpContainer.close()
   }
 
@@ -52,7 +54,7 @@ class IPLayer extends EventEmitter {
         return this.#dnsResolver.request(ip4Packet, udpMessage)
       }
 
-      return this.#udpStream.send(ip4Packet, udpMessage)
+      return this.#udpContainer.send(ip4Packet, udpMessage)
     }
 
     if (ip4Packet.protocol === TCP) {
@@ -61,7 +63,7 @@ class IPLayer extends EventEmitter {
       return this.#tcpContainer.send(ip4Packet, tcpMessage)
     }
 
-    // console.log(`unknown protocol ${ipv4Packet.protocolNum}`, ipv4Packet.payload.toString('hex'))
+    this.#logger.debug(() => `unknown protocol ${ip4Packet.protocolNum}`, ip4Packet.payload.toString('hex'))
   }
 }
 
