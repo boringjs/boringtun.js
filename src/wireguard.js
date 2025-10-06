@@ -77,8 +77,8 @@ class Wireguard extends EventEmitter {
     return this.#listenPort
   }
 
-  getPeerByKey(key){
-   return this.#peersMap.get(key)
+  getPeerByKey(key) {
+    return this.#peersMap.get(key)
   }
 
   addTCPSocketFactory(tcpSocketFactory) {
@@ -154,8 +154,13 @@ class Wireguard extends EventEmitter {
       UDPSocketFactory: this.#UDPSocketFactory,
     })
     this.#ipLayer.on('ipv4ToTunnel', this.#onMessageFromIPLayer.bind(this))
+    this.#ipLayer.on('DNSResponseParsed', this.#onDNSResponseParsed.bind(this))
     this.#server.bind(this.#listenPort, this.#onListening.bind(this))
     this.#logger.info(() => `Start listen on port ${this.#listenPort}`)
+  }
+
+  #onDNSResponseParsed({ request, response }) {
+    this.#logger.debug(() => ['DNS', `DNSResponseParsed ${response?.questions?.[0]?.name} -> ${response?.answers?.[0]?.data}`])
   }
 
   #route(ip) {
@@ -206,7 +211,7 @@ class Wireguard extends EventEmitter {
     // this.#logger.debug(() => {
     //   const tcpMsg = ip4Packet.protocol === TCP ? JSON.stringify(ip4Packet.getTCPMessage().debugView(), null, 2) : ''
 
-      // return `to ip layer (${ip4Packet.protocol}): ${ip4Packet.sourceIP} -> ${ip4Packet.destinationIP} (${tcpMsg})`
+    // return `to ip layer (${ip4Packet.protocol}): ${ip4Packet.sourceIP} -> ${ip4Packet.destinationIP} (${tcpMsg})`
     // })
 
     this.#ipLayer.send(ip4Packet)

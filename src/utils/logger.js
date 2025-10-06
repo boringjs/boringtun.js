@@ -5,6 +5,7 @@ class Logger {
   #info = console.info
   #debug = console.debug
   #error = console.error
+  #callback = null
 
   static #logLevelMap = {
     undefined: 0,
@@ -28,27 +29,44 @@ class Logger {
    * @param {function} [options.debug]
    * @param {function} [options.info]
    * @param {function} [options.error]
+   * @param {function} [options.callback]
    */
-  constructor({ logLevel = 0, log, warn, debug, info, error } = {}) {
+  constructor({ logLevel = 0, log, warn, debug, info, error, callback = null } = {}) {
+    this.callback = callback
     this.#logLevel = Logger.#logLevelMap[logLevel?.toString().toLowerCase()] || 0
     this.#log = log || this.#log
     this.#warn = warn || this.#warn
     this.#debug = debug || this.#debug
     this.#error = error || this.#error
     this.#info = info || this.#info
-    this.log = 1 <= this.#logLevel ? this.#logInternal.bind(this, this.#log) : () => {}
-    this.error = 1 <= this.#logLevel ? this.#logInternal.bind(this, this.#error) : () => {}
-    this.warn = 2 <= this.#logLevel ? this.#logInternal.bind(this, this.#warn) : () => {}
-    this.info = 3 <= this.#logLevel ? this.#logInternal.bind(this, this.#info) : () => {}
-    this.debug = 4 <= this.#logLevel ? this.#logInternal.bind(this, this.#debug) : () => {}
+    this.log = 1 <= this.#logLevel ? this.#logInternal.bind(this, 'log', this.#log) : () => {}
+    this.error = 1 <= this.#logLevel ? this.#logInternal.bind(this, 'error', this.#error) : () => {}
+    this.warn = 2 <= this.#logLevel ? this.#logInternal.bind(this, 'warn', this.#warn) : () => {}
+    this.info = 3 <= this.#logLevel ? this.#logInternal.bind(this, 'info', this.#info) : () => {}
+    this.debug = 4 <= this.#logLevel ? this.#logInternal.bind(this, 'debug', this.#debug) : () => {}
+    this.ignore = () => {}
   }
 
-  #logInternal(logFn, logCallback, ...args) {
+  /**
+   * @param {function} v
+   */
+  set callback(v) {
+    if (typeof v !== 'function' && v !== null) {
+      throw new TypeError('Logger callback must be a function')
+    }
+    this.#callback = v
+  }
+
+  #logInternal(level, logFn, logCallback, ...args) {
     if (typeof logCallback === 'function') {
-      const result = logCallback()
-      return Array.isArray(result) ? logFn(...result) : logFn(result)
+      const log = logCallback()
+
+      this.#callback?.({ level, log })
+
+      return Array.isArray(log) ? logFn(...log) : logFn(log)
     }
 
+    this.#callback?.({ level, log: [logCallback, ...args].join(',') })
     return logFn(logCallback, ...args)
   }
 }

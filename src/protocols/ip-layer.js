@@ -17,22 +17,26 @@ class IPLayer extends EventEmitter {
     this.#dnsResolver = new DNSResolver({ logger })
     this.#udpContainer = new UDPContainer({ logger, udpSocketFactory })
     this.#tcpContainer = new TCPContainer({ logger, tcpSocketFactory })
+    this.#dnsResolver.on('DNSResponseParsed', this.#dnsParsed.bind(this))
     this.#dnsResolver.on('DNSResponse', this.#emitIPv4Packet.bind(this))
     this.#udpContainer.on('udpMessage', this.#emitIPv4Packet.bind(this))
     this.#tcpContainer.on('ip4Packet', this.#emitIPv4Packet.bind(this))
+  }
+
+  #dnsParsed({ request, response }) {
+    // this.#logger.debug(() => `dns parsed ${request.id}`)
+    this.emit('DNSResponseParsed', { request, response })
   }
 
   /**
    * @param {IP4Packet} ip4Packet
    */
   #emitIPv4Packet(ip4Packet) {
-    /*
-    this.#logger.debug(() => {
-      const tcpMsg = ip4Packet.protocol === TCP ? JSON.stringify(ip4Packet.getTCPMessage().debugView(), null, 2) : ''
-
-      return `from ip layer (${ip4Packet.protocol}): ${ip4Packet.sourceIP} -> ${ip4Packet.destinationIP} ${tcpMsg}`
-    })
-     */
+    // this.#logger.debug(() => {
+    //   const tcpMsg = ip4Packet.protocol === TCP ? JSON.stringify(ip4Packet.getTCPMessage().debugView(), null, 2) : ''
+    //
+    //   return `from ip layer (${ip4Packet.protocol}): ${ip4Packet.sourceIP} -> ${ip4Packet.destinationIP} ${tcpMsg}`
+    // })
 
     this.emit('ipv4ToTunnel', ip4Packet)
   }
