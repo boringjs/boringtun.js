@@ -2,6 +2,7 @@ const { EventEmitter } = require('events')
 const IP4Address = require('./protocols/ip4-address.js')
 const { WireguardTunnelWrapper } = require('./tunnel.js')
 const Logger = require('./utils/logger.js')
+const IPv4Packet = require('./protocols/ip4-packet')
 
 const TICK_INTERVAL = 100
 const FORCE_HANDSHAKE_DELTA = 1000
@@ -69,6 +70,10 @@ class Peer extends EventEmitter {
     // todo emit handshake
   }
 
+  get id() {
+    return this.#publicKey
+  }
+
   #startTick() {
     if (this.#tickIntervalId) {
       // this.#logger.debug(() => `Tick interval was set ${this.#publicKey}`)
@@ -126,7 +131,9 @@ class Peer extends EventEmitter {
    * @param {Buffer} data
    */
   #emitWriteToIPv4Layer(data) {
-    this.emit('writeToIp4Layer', data)
+    const ip4Packet = new IPv4Packet(data)
+    ip4Packet.peerId = this.id
+    this.emit('writeToIp4Layer', ip4Packet)
   }
 
   /**

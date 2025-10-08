@@ -4,7 +4,6 @@ const DNSMessage = require('./dns-message.js')
 const IP4Packet = require('./ip4-packet.js')
 const { UDP } = require('./constants.js')
 
-const Logger = require('../utils/logger.js')
 const TIME_DNS_EXPIRE = 30_000
 const GC_INTERVAL = 3_000
 
@@ -14,22 +13,24 @@ class DNSResolver extends EventEmitter {
   #dnsRequestMap = new Map()
   #udpConnectionTimeout = null
   #udpSocket = null
-  #udpSocketFactory = dgram.createSocket('udp4')
+  #udpSocketFactory
   #expireDelta
   #logger = /** @type{Logger}*/ null
   #id = 0
+  #peerId = null
   static #requestCounter = Math.floor(Math.random() * 1000)
   static #inc() {
     this.#requestCounter = (this.#requestCounter + 1) % 65535
     return this.#requestCounter
   }
 
-  constructor({ id, logger, udpSocketFactory = dgram.createSocket, expireDelta = TIME_DNS_EXPIRE } = {}) {
+  constructor({ peerId, id, logger, udpSocketFactory = dgram.createSocket, expireDelta = TIME_DNS_EXPIRE } = {}) {
     super()
     this.#id = id
     this.#logger = logger
     this.#udpSocketFactory = udpSocketFactory
     this.#expireDelta = expireDelta
+    this.#peerId = peerId
   }
 
   get id() {
@@ -78,7 +79,7 @@ class DNSResolver extends EventEmitter {
     this.#dnsRequestMap.delete(dns.id)
 
     dns.id = client.originId
-    // todo
+    // todo modify id not with side effect
 
     const packet = new IP4Packet({
       protocol: UDP,
@@ -96,20 +97,11 @@ class DNSResolver extends EventEmitter {
     // this.emit('DNSResponseParsed', { request: client.initMessage.parseMessage(), response: dns.parseMessage() })
   }
 
-  #getHash(dns) {
-    const dnsMsg = dns.parseMessage()
-    const req = dnsMsg.questions
-      .map(({ name }) => name)
-      .sort()
-      .join(',')
-    return `${dns.id}:${req}`
-  }
-
   #checkConnection() {
     if (this.#udpSocket) {
       return
     }
-    this.#udpSocket = this.#udpSocketFactory('udp4')
+    this.#udpSocket = this.#udpSocketFactory({ type: 'udp4', peerId: this.#peerId })
     this.#udpConnectionTimeout = setInterval(this.#cleanUDPConnections.bind(this), GC_INTERVAL)
     this.#udpSocket.on('message', this.#onReceiveDNSMessage.bind(this))
   }

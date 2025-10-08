@@ -2,8 +2,7 @@ const { EventEmitter } = require('events')
 const UDPClient = require('./udp-client.js')
 const DNSResolver = require('./dns-resolver.js')
 
-const UDP_CONTAINER = 'UDP_CONTAINER'
-const DNS = 'DNS'
+const UDP_CONTAINER = '[UDP_CONTAINER]'
 
 class UdpContainer extends EventEmitter {
   static #idCounter = 0
@@ -15,41 +14,69 @@ class UdpContainer extends EventEmitter {
     super()
     this.#logger = logger
     this.#udpSocketFactory = udpSocketFactory
-    this.#createDNS()
   }
 
-  #getHash({ ipv4Packet, udpMessage, sourceIP, sourcePort, destinationIP, destinationPort }) {
-    if (this.#isDNSMessage(ipv4Packet, udpMessage)) {
+  #getHash({ type, peerId, sourceIP, sourcePort, destinationIP, destinationPort }) {
+    switch (type) {
+      case 'dns':
+        return `dns-${peerId}`
+      case 'raw':
+        return `${sourceIP}:${sourcePort}:${destinationIP}:${destinationPort}`
+      default:
+        throw new Error(`Unknown udp type: ${type}`)
+    }
+  }
+
+  #checkType({ ip4Packet, udpMessage }) {
+    if (
+      (udpMessage.destinationPort === 53 && udpMessage.isDnsRequest()) ||
+      (udpMessage.sourcePort === 53 && udpMessage.isDnsResponse())
+    ) {
       return 'dns'
     }
 
-    return `${sourceIP}:${sourcePort}:${destinationIP}:${destinationPort}`
+    return 'raw'
   }
 
-  #isDNSMessage(ip4Packet, udpMessage) {
-    return (
-      (udpMessage.destinationPort === 53 && udpMessage.isDnsRequest()) ||
-      (udpMessage.sourcePort === 53 && udpMessage.isDnsResponse())
-    )
-  }
-
-  #createDNS() {
-    if (this.#udpClients.has('dns')) {
+  #createUDP({ peerId, sourceIP, destinationIP, sourcePort, destinationPort, hash, type }) {
+    if (this.#udpClients.has(hash)) {
       return
     }
-    const client = new DNSResolver({
-      id: UdpContainer.#idCounter++,
-      logger: this.#logger,
-      udpSocketFactory: this.#udpSocketFactory,
-    })
 
-    this.#udpClients.set('dns', client)
-    client.on('close', this.#udpClients.delete.bind(this.#udpClients, 'dns'))
+    let client = null
+
+    switch (type) {
+      case 'raw':
+        client = new UDPClient({
+          peerId,
+          id: UdpContainer.#idCounter++,
+          sourceIP,
+          sourcePort,
+          destinationPort,
+          destinationIP,
+          logger: this.#logger,
+          udpSocketFactory: this.#udpSocketFactory,
+        })
+        break
+      case 'dns':
+        client = new DNSResolver({
+          peerId,
+          id: UdpContainer.#idCounter++,
+          logger: this.#logger,
+          udpSocketFactory: this.#udpSocketFactory,
+        })
+        break
+      default:
+        throw new Error(`Unknown type ${type}`)
+    }
+
+    this.#udpClients.set(hash, client)
+    client.on('close', this.#udpClients.delete.bind(this.#udpClients, hash))
     client.on('udpMessage', this.emit.bind(this, 'udpMessage'))
 
     this.#logger.debug(() => {
-      const f = `${UDP_CONTAINER}[id-${client.id}}][dns]`
-      const msg = `Create Dns resolver.`
+      const f = `${UDP_CONTAINER}[id-${client.id}][${type}]`
+      const msg = `Create udp(${type}) client. UdpCount: ${this.#udpClients.size}`
 
       return { f, msg }
     })
@@ -64,28 +91,27 @@ class UdpContainer extends EventEmitter {
     const destinationIP = ip4Packet.destinationIP
     const sourcePort = udpMessage.sourcePort
     const destinationPort = udpMessage.destinationPort
+    const peerId = ip4Packet.peerId
 
-    const hash = this.#getHash({ udpMessage, sourceIP, sourcePort, destinationIP })
+    if (!peerId) {
+      this.#logger.debug(() => {
+        const f = `${UDP_CONTAINER}[${type}]`
+        const msg = 'peerId not found'
+        return { f, msg }
+      })
+    }
+
+    const type = this.#checkType({ ip4Packet, udpMessage })
+    const hash = this.#getHash({ peerId, type, sourceIP, sourcePort, destinationIP })
 
     if (!this.#udpClients.has(hash)) {
-      const client = new UDPClient({
-        id: UdpContainer.#idCounter++,
+      this.#createUDP({
         sourceIP,
+        destinationIP,
         sourcePort,
         destinationPort,
-        destinationIP,
-        logger: this.#logger,
-        udpSocketFactory: this.#udpSocketFactory,
-      })
-      this.#udpClients.set(hash, client)
-      client.on('close', this.#udpClients.delete.bind(this.#udpClients, hash))
-      client.on('udpMessage', this.emit.bind(this, 'udpMessage'))
-
-      this.#logger.debug(() => {
-        const f = `${UDP_CONTAINER}[id-${client.id}}][udp]`
-        const msg = `Create UdpClient. UdpCount: ${this.#udpClients.size}`
-
-        return { f, msg }
+        hash,
+        type,
       })
     }
 

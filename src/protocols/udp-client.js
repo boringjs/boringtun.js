@@ -11,6 +11,7 @@ const TICK_DELTA = 1000
 const UDP_CLIENT = '[UDP_CLIENT]'
 
 class UDPClient extends EventEmitter {
+  #peerId
   #expire = 0
   #sourceIP = /** @type{IP4Address|null}*/ null
   #sourcePort = 0
@@ -28,6 +29,7 @@ class UDPClient extends EventEmitter {
 
   constructor({
     id,
+    peerId,
     sourceIP,
     sourcePort,
     destinationIP,
@@ -37,11 +39,12 @@ class UDPClient extends EventEmitter {
   }) {
     super()
     this.#id = id
+    this.#peerId = peerId
     this.#sourceIP = new IP4Address(sourceIP)
     this.#sourcePort = sourcePort
     this.#destinationIP = new IP4Address(destinationIP)
     this.#destinationPort = destinationPort
-    this.#udpSocketFactory = dgram.createSocket // udpSocketFactory
+    this.#udpSocketFactory = udpSocketFactory
     this.#logger = logger || new Logger()
     this.#name = `${this.#type}:${this.#sourceIP}:${this.#sourcePort} -> ${this.#destinationIP}:${this.#destinationPort}`
   }
@@ -53,7 +56,7 @@ class UDPClient extends EventEmitter {
   #update() {
     if (!this.#udpSocket) {
       this.#logger.debug(() => `Create ${this.#name}`)
-      this.#udpSocket = this.#udpSocketFactory('udp4')
+      this.#udpSocket = this.#udpSocketFactory({ type: 'udp4', peerId: this.#peerId })
       this.#udpSocket.on('message', this.#onMessage.bind(this))
       this.#tick = setInterval(this.#checkExpire.bind(this), TICK_DELTA)
     }
@@ -76,6 +79,7 @@ class UDPClient extends EventEmitter {
 
   send(ip4Packet, udpMessage) {
     this.#update()
+
     this.#udpSocket.send(udpMessage.data, this.#destinationPort, this.#destinationIP.toString())
   }
 

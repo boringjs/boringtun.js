@@ -4,9 +4,7 @@ const IPLayer = require('./protocols/ip-layer.js')
 const { checkValidKey, getPublicKeyFrom } = require('./tunnel.js')
 const Peer = require('./peer.js')
 const IP4Address = require('./protocols/ip4-address.js')
-const IPv4Packet = require('./protocols/ip4-packet.js')
 const Logger = require('./utils/logger.js')
-const { TCP } = require('./protocols/constants')
 
 const WG = '[WG]'
 
@@ -153,23 +151,15 @@ class Wireguard extends EventEmitter {
     this.#ipLayer = new IPLayer({
       logger: this.#logger,
       tcpSocketFactory: this.#TCPSocketFactory,
-      UDPSocketFactory: this.#UDPSocketFactory,
+      udpSocketFactory: this.#UDPSocketFactory,
     })
     this.#ipLayer.on('ipv4ToTunnel', this.#onMessageFromIPLayer.bind(this))
-    this.#ipLayer.on('DNSResponseParsed', this.#onDNSResponseParsed.bind(this))
     this.#server.bind(this.#listenPort, this.#onListening.bind(this))
     this.#logger.info(() => {
       const f = `[WG]`
       const msg = `Start listen on port ${this.#listenPort}`
       return { f, msg }
     })
-  }
-
-  #onDNSResponseParsed({ request, response }) {
-    this.#logger.debug(() => [
-      'DNS',
-      `DNSResponseParsed ${response?.questions?.[0]?.name} -> ${response?.answers?.[0]?.data}`,
-    ])
   }
 
   #route(ip) {
@@ -208,10 +198,9 @@ class Wireguard extends EventEmitter {
   }
 
   /**
-   * @param {Buffer} data
+   * @param {IPv4Packet} ip4Packet
    */
-  #onWriteToIPv4(data) {
-    const ip4Packet = new IPv4Packet(data)
+  #onWriteToIPv4(ip4Packet) {
     const peer = this.#route(ip4Packet.destinationIP)
     if (peer) {
       return peer.write(ip4Packet.toBuffer())

@@ -4,6 +4,7 @@ const UDPMessage = require('./udp-message.js')
 const TCPMessage = require('./tcp-message.js')
 
 class IP4Packet {
+  #peerId = null
   #version = 4
   #headerLength = 20
   #typeOfService = 0
@@ -105,6 +106,13 @@ class IP4Packet {
     }
   }
 
+  set peerId(v) {
+    this.#peerId = v
+  }
+
+  get peerId() {
+    return this.#peerId
+  }
 
   debugView() {
     return {
