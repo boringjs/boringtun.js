@@ -8,6 +8,8 @@ const IPv4Packet = require('./protocols/ip4-packet.js')
 const Logger = require('./utils/logger.js')
 const { TCP } = require('./protocols/constants')
 
+const WG = '[WG]'
+
 class Wireguard extends EventEmitter {
   #ipLayer = /** @type{IPLayer} */ null
   #privateKey = ''
@@ -156,11 +158,18 @@ class Wireguard extends EventEmitter {
     this.#ipLayer.on('ipv4ToTunnel', this.#onMessageFromIPLayer.bind(this))
     this.#ipLayer.on('DNSResponseParsed', this.#onDNSResponseParsed.bind(this))
     this.#server.bind(this.#listenPort, this.#onListening.bind(this))
-    this.#logger.info(() => `Start listen on port ${this.#listenPort}`)
+    this.#logger.info(() => {
+      const f = `[WG]`
+      const msg = `Start listen on port ${this.#listenPort}`
+      return { f, msg }
+    })
   }
 
   #onDNSResponseParsed({ request, response }) {
-    this.#logger.debug(() => ['DNS', `DNSResponseParsed ${response?.questions?.[0]?.name} -> ${response?.answers?.[0]?.data}`])
+    this.#logger.debug(() => [
+      'DNS',
+      `DNSResponseParsed ${response?.questions?.[0]?.name} -> ${response?.answers?.[0]?.data}`,
+    ])
   }
 
   #route(ip) {
@@ -243,7 +252,11 @@ class Wireguard extends EventEmitter {
 
   #onListening() {
     if (this.#logLevel) {
-      this.#logger.log('Start working')
+      this.#logger.info(() => {
+        const f = WG
+        const msg = 'Start working'
+        return { f, msg }
+      })
     }
 
     this.#peers.forEach((peer) => peer.forceHandshake())

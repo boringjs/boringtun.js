@@ -68,10 +68,10 @@ class DNSMessage {
       // throw new TypeError('Input is not buffer')
       // todo: create empty message
     }
-
-    this.#qr = (input[2] & 0b10000000) >> 7
-    this.#id = input.readUInt16BE(0)
     this.#data = input
+
+    this.#qr = (this.#data[2] & 0b10000000) >> 7
+    this.#id = this.#data.readUInt16BE(0)
   }
 
   get valid() {
@@ -91,13 +91,14 @@ class DNSMessage {
     }
 
     this.#id = v
+    this.#id = this.#data.writeUInt16BE(this.#id)
   }
 
   get data() {
     return this.#data
   }
 
-  parseMessage(){
+  parseMessage() {
     if (!this.#valid) {
       return null
     }

@@ -7,11 +7,16 @@ class TCPContainer extends EventEmitter {
   #tcpConnections = /** @type{Map<string, TCPStream>} */ new Map() // Map (maps connection identifiers to TCPStream instances)
   #logger = /** @type{Logger} */ null
   #tcpSocketFactory
+  #socketCounter = 0
 
   constructor({ logger, tcpSocketFactory } = {}) {
     super()
     this.#logger = logger || new Logger()
     this.#tcpSocketFactory = tcpSocketFactory
+  }
+
+  #socketInc() {
+    return this.#socketCounter++
   }
 
   send(ipv4Packet, tcpMessage) {
@@ -50,6 +55,7 @@ class TCPContainer extends EventEmitter {
         destinationPort,
         logger: this.#logger,
         tcpSocketFactory: this.#tcpSocketFactory,
+        socketId: this.#socketInc(),
       })
       this.#tcpConnections.set(hash, tcpStream)
 

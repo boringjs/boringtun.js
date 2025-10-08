@@ -4,7 +4,8 @@ const { WireguardTunnelWrapper } = require('./tunnel.js')
 const Logger = require('./utils/logger.js')
 
 const TICK_INTERVAL = 100
-const FORCE_HADNSHAKE_DELTA = 1000
+const FORCE_HANDSHAKE_DELTA = 1000
+const PEER = '[PEER]'
 
 /**
  * @typedef {Object} WriteToTunnelPayload
@@ -157,7 +158,13 @@ class Peer extends EventEmitter {
     }
 
     if (type === WireguardTunnelWrapper.WIREGUARD_ERROR) {
-      this.#logger.error(`Error on wireguard. Src: ${src}`)
+      this.#logger.error(() => {
+        const f = `${PEER}[${this.name || this.#publicKey}][${src}]`
+        const msg = `Error on wireguard.`
+
+        return { f, msg }
+      })
+
       if (src === 'tick') {
         this.#stopTick()
       }
@@ -199,7 +206,12 @@ class Peer extends EventEmitter {
     }
 
     if (!isGood) {
-      this.#logger.log(() => `force handshake for peer: ${this.#publicKey}`)
+      this.#logger.log(() => {
+        const f = `${PEER}[${this.#name || this.#publicKey}]`
+        const msg = `force handshake for peer`
+
+        return { f, msg }
+      })
       this.forceHandshake()
     }
 
@@ -235,11 +247,15 @@ class Peer extends EventEmitter {
 
   forceHandshake() {
     if (!this.endpoint) {
-      this.#logger.debug(() => 'no endpoint for handshake')
+      this.#logger.debug(() => {
+        const f = `${PEER}[${this.#name || this.#publicKey}]`
+        const msg = 'no endpoint for handshake'
+        return { f, msg }
+      })
       return
     }
 
-    if (this.#lastForceHandshake + FORCE_HADNSHAKE_DELTA > Date.now()) {
+    if (this.#lastForceHandshake + FORCE_HANDSHAKE_DELTA > Date.now()) {
       return
     }
 

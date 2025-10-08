@@ -11,7 +11,6 @@ const DELTA = 1000 // todo rename
 const TCP_STREAM = '[TCP_STREAM]'
 
 class TCPStream extends EventEmitter {
-  static #socketCounter = 0
   #sourceIP = null // : String
   #destinationIP = null // : String
   #sourcePort = null // : Integer
@@ -29,7 +28,7 @@ class TCPStream extends EventEmitter {
   #delta = 0
   #id = 0
   #logger = /** @type{Logger} */ null
-  #socketDebugId = TCPStream.#socketCounter++
+  #socketId = -1
   /**
    * @param {Object} options
    * @param {string} options.host
@@ -54,9 +53,10 @@ class TCPStream extends EventEmitter {
     sourcePort,
     destinationPort,
     delta = DELTA,
-    tcpSocketFactory = ({ sourceIP, sourcePort, ...options }, callback) => net.connect(options, callback),
+    tcpSocketFactory = ({ socketId, sourceIP, sourcePort, ...options }, callback) => net.connect(options, callback),
     logger,
     hash,
+    socketId,
   }) {
     super()
     this.#hash = hash
@@ -67,6 +67,7 @@ class TCPStream extends EventEmitter {
     this.#delta = delta
     this.#tcpSocketFactory = tcpSocketFactory
     this.#logger = logger || new Logger()
+    this.#socketId = socketId
   }
 
   set #acknowledgmentNumber(v) {
@@ -120,7 +121,11 @@ class TCPStream extends EventEmitter {
       this.#emitClose()
       return
     }
-    this.#logger.error(() => [`error: "${error.message}" "${error.code}"`, error])
+    this.#logger.error(() => ({
+      f: `${TCP_STREAM}[id-${this.#socketId}]`,
+      ip: this.#destinationIP.toString(),
+      error: `error ${error.code}: ${error.message}`,
+    }))
   }
 
   /**
@@ -202,13 +207,12 @@ class TCPStream extends EventEmitter {
 
     if (tcpMessage.ACK && this.#tcpStage === 'fin_client2') {
       if (tcpMessage.acknowledgmentNumber === this.#sequenceNumber) {
-        // this.#logger.debug(() => [
-        //   'grace close by client:',
-        //   this.#acknowledgmentNumber,
-        //   tcpMessage.sequenceNumber,
-        //   this.#sequenceNumber,
-        //   tcpMessage.acknowledgmentNumber,
-        // ])
+        this.#logger.debug(() => ({
+          f: `${TCP_STREAM}[id-${this.#socketId}]`,
+          ip: this.#destinationIP.toString(),
+          log: `grace close socket by client`,
+        }))
+
         this.#emitClose()
       }
     }
@@ -242,7 +246,7 @@ class TCPStream extends EventEmitter {
   #connect(ipv4Packet) {
     if (this.#socketStage !== 'new') {
       this.#logger.error(() => ({
-        f: `${TCP_STREAM}[id-${this.#socketDebugId}]`,
+        f: `${TCP_STREAM}[id-${this.#socketId}]`,
         error: 'socket is not new',
         path: `${this.#sourceIP}:${this.#sourcePort} -> ${this.#destinationIP}:${this.#destinationPort}`,
       }))
@@ -253,7 +257,7 @@ class TCPStream extends EventEmitter {
     this.#connectionTimeout = setTimeout(this.close.bind(this), SOCKET_CONNECTION_TIMEOUT)
 
     this.#logger.info(() => ({
-      f: `${TCP_STREAM}[id-${this.#socketDebugId}]`,
+      f: `${TCP_STREAM}[id-${this.#socketId}]`,
       log: 'connecting',
       path: `${this.#sourceIP}:${this.#sourcePort} -> ${this.#destinationIP}:${this.#destinationPort}`,
     }))
@@ -264,7 +268,7 @@ class TCPStream extends EventEmitter {
     const host = this.#destinationIP.toString()
 
     this.#socket = this.#tcpSocketFactory(
-      { host, port, sourcePort, sourceIP },
+      { host, port, sourcePort, sourceIP, socketId: this.#socketId },
       this.#onSocketConnect.bind(this, ipv4Packet),
     )
     this.#socket.on('data', (this.#onSocketDataBind = this.#onSocketData.bind(this)))
@@ -273,6 +277,7 @@ class TCPStream extends EventEmitter {
   }
 
   #onSocketConnect(ip4Packet) {
+    this.#logger.debug(() => ({ f: `${TCP_STREAM}[id-${this.#socketId}] connected` }))
     clearTimeout(this.#connectionTimeout)
     this.#socketStage = 'established'
     this.#emitIp4Packet(ip4Packet)
@@ -288,6 +293,11 @@ class TCPStream extends EventEmitter {
    */
   send(incomingTCPMessage) {
     if (incomingTCPMessage.RST) {
+      this.#logger.debug(() => ({
+        f: `${TCP_STREAM}[id-${this.#socketId}]`,
+        ip: this.#destinationIP.toString(),
+        log: `connection reset`,
+      }))
       // this.#logger.debug(() => '[TCP_STREAM] connection reset')
       this.#tcpStage = 'reset'
       this.close()
@@ -349,7 +359,7 @@ class TCPStream extends EventEmitter {
         (incomingTCPMessage.SYN ? 1 : 0) // replaced
       this.#emitIp4Packet(this.#createTCP({ ACK: true }))
     } else {
-      this.#logger.error(() => ({ f: `${TCP_STREAM}[id-${this.#socketDebugId}]`, log: `strange socket` }))
+      this.#logger.error(() => ({ f: `${TCP_STREAM}[id-${this.#socketId}]`, log: `strange socket` }))
     }
 
     if (this.#socketStage === 'established') {
@@ -358,7 +368,12 @@ class TCPStream extends EventEmitter {
   }
 
   close() {
-    this.#logger.debug(() => ({ f: `${TCP_STREAM}[id-${this.#socketDebugId}]`, log: `close socket` }))
+    this.#logger.debug(() => ({
+      f: `${TCP_STREAM}[id-${this.#socketId}]`,
+      ip: this.#destinationIP.toString(),
+      log: `close socket`,
+    }))
+
     if (this.#socket) {
       this.#socket.off('data', this.#onSocketDataBind)
       this.#socket.off('error', this.#onSocketErrorBind)

@@ -188,6 +188,14 @@ class UDPMessage {
     return buffer
   }
 
+  copy() {
+    const bufferCopy = this.toBuffer()
+    const copy = new UDPMessage(bufferCopy)
+    copy.sourceIP = this.#sourceIP
+    copy.destinationIP = this.#destinationIP
+    return copy
+  }
+
   isDnsRequest() {
     if (this.#destinationPort !== 53) {
       return false

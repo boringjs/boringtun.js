@@ -8,21 +8,32 @@ const Logger = require('../utils/logger.js')
 const TIME_DNS_EXPIRE = 30_000
 const GC_INTERVAL = 3_000
 
-const DNS = '[DNS]'
+const DNS_RESOLVER = '[DNS_RESOLVER]'
 
 class DNSResolver extends EventEmitter {
   #dnsRequestMap = new Map()
   #udpConnectionTimeout = null
-  #udpProxySocket = dgram.createSocket('udp4')
+  #udpSocket = null
+  #udpSocketFactory = dgram.createSocket('udp4')
   #expireDelta
   #logger = /** @type{Logger}*/ null
+  #id = 0
+  static #requestCounter = Math.floor(Math.random() * 1000)
+  static #inc() {
+    this.#requestCounter = (this.#requestCounter + 1) % 65535
+    return this.#requestCounter
+  }
 
-  constructor({ logger, expireDelta = TIME_DNS_EXPIRE } = {}) {
+  constructor({ id, logger, udpSocketFactory = dgram.createSocket, expireDelta = TIME_DNS_EXPIRE } = {}) {
     super()
-    this.#logger = logger || new Logger()
-    this.#udpConnectionTimeout = setInterval(this.#cleanUDPConnections.bind(this), GC_INTERVAL)
-    this.#udpProxySocket.on('message', this.#onReceiveDNSMessage.bind(this))
+    this.#id = id
+    this.#logger = logger
+    this.#udpSocketFactory = udpSocketFactory
     this.#expireDelta = expireDelta
+  }
+
+  get id() {
+    return this.#id
   }
 
   #cleanUDPConnections() {
@@ -43,30 +54,31 @@ class DNSResolver extends EventEmitter {
       return
     }
 
-    const id = this.#getHash(dns)
-
-    if (!this.#dnsRequestMap.has(id)) {
+    if (!this.#dnsRequestMap.has(dns.id)) {
       this.#logger.debug(() => {
-        const f = `${DNS}[id-${id}]`
+        const f = `${DNS_RESOLVER}[id-${dns.id}]`
         const msg = dns.parseMessage()
-        const trace = `from ${client.destinationIP}:${client.destinationPort}`
+        const trace = `from ${address}:${port}`
         const res = `${msg.questions?.[0].name} -> ${msg.answers.map(({ data }) => data).join(',')}`
         return { f, trace, res }
       })
       return
     }
 
-    const client = this.#dnsRequestMap.get(id)
+    const client = this.#dnsRequestMap.get(dns.id)
 
     this.#logger.debug(() => {
-      const f = `${DNS}[id-${id}]`
+      const f = `${DNS_RESOLVER}[id-${client.originId}]`
       const msg = dns.parseMessage()
       const trace = `${client.sourceIP}:${client.sourcePort} <-> ${client.destinationIP}:${client.destinationPort}`
       const res = `${msg.questions?.[0].name} -> ${msg.answers.map(({ data }) => data).join(',')}`
       return { f, trace, res }
     })
 
-    this.#dnsRequestMap.delete(id)
+    this.#dnsRequestMap.delete(dns.id)
+
+    dns.id = client.originId
+    // todo
 
     const packet = new IP4Packet({
       protocol: UDP,
@@ -80,7 +92,7 @@ class DNSResolver extends EventEmitter {
     })
 
     // this.#logger.debug('emit dns response')
-    this.emit('DNSResponse', packet)
+    this.emit('udpMessage', packet)
     // this.emit('DNSResponseParsed', { request: client.initMessage.parseMessage(), response: dns.parseMessage() })
   }
 
@@ -93,33 +105,53 @@ class DNSResolver extends EventEmitter {
     return `${dns.id}:${req}`
   }
 
+  #checkConnection() {
+    if (this.#udpSocket) {
+      return
+    }
+    this.#udpSocket = this.#udpSocketFactory('udp4')
+    this.#udpConnectionTimeout = setInterval(this.#cleanUDPConnections.bind(this), GC_INTERVAL)
+    this.#udpSocket.on('message', this.#onReceiveDNSMessage.bind(this))
+  }
+
   /**
    * @param {IP4Packet} ip4Packet
    * @param {UDPMessage} udpMessage
    */
-  request(ip4Packet, udpMessage) {
-    const dns = udpMessage.getDNSMessage()
+  send(ip4Packet, udpMessage) {
+    const requestDNS = udpMessage.getDNSMessage()
 
-    if (!dns || !dns.valid || !dns.isRequest()) {
+    if (!requestDNS || !requestDNS.valid || !requestDNS.isRequest()) {
       this.#logger.warn(() => {
-        return { f: DNS, msg: 'not valid dns response' }
+        return { f: DNS_RESOLVER, msg: 'not valid dns response' }
       })
       return
     }
+
+    this.#checkConnection()
 
     const sourcePort = udpMessage.sourcePort
     const sourceIP = ip4Packet.sourceIP
     const destinationIP = ip4Packet.destinationIP
     const destinationPort = udpMessage.destinationPort
+    const outgoingUDP = udpMessage.copy()
+    const mapId = DNSResolver.#inc()
+    const originId = requestDNS.id
 
-    const id = this.#getHash(dns)
-
-    if (this.#dnsRequestMap.has(id)) {
-      this.#logger.warn(() => ({ f: `${DNS}[id:${id}]`, msg: 'request with that number exists' }))
+    if (this.#dnsRequestMap.has(mapId)) {
+      this.#logger.warn(() => ({ f: `${DNS_RESOLVER}[id:${mapId}]`, msg: 'request with that number exists' }))
     }
 
-    this.#dnsRequestMap.set(id, {
-      initMessage: dns,
+    const outgoingDNS = outgoingUDP.getDNSMessage()
+
+    outgoingDNS.id = mapId
+
+    // todo: this mutate origin udpMessage so make it clear
+
+    this.#dnsRequestMap.set(mapId, {
+      requestDNS,
+      outgoingDNS,
+      originId,
       expire: Date.now() + this.#expireDelta,
       sourcePort,
       sourceIP,
@@ -129,19 +161,19 @@ class DNSResolver extends EventEmitter {
 
     // for debug
     this.#logger.ignore(() => {
-      const f = `[DNS][id-${id}]`
+      const f = `${DNS_RESOLVER}[id-${mapId}]`
       const trace = `${sourceIP}:${sourcePort} <-> ${destinationIP}:${destinationPort}`
-      return { f, msg: 'DNS request', trace }
+      return { f, msg: 'DNS_RESOLVER request', trace }
     })
 
-    this.#udpProxySocket.send(udpMessage.data, udpMessage.destinationPort, udpMessage.destinationIP.toString())
+    this.#udpSocket.send(outgoingUDP.data, destinationPort, destinationIP.toString())
   }
 
   close() {
     clearInterval(this.#udpConnectionTimeout)
-    if (this.#udpProxySocket) {
-      this.#udpProxySocket.close()
-      this.#udpProxySocket = null
+    if (this.#udpSocket) {
+      this.#udpSocket.close()
+      this.#udpSocket = null
     }
   }
 }

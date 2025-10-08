@@ -1,12 +1,10 @@
 const { EventEmitter } = require('events')
-const DNSResolver = require('./dns-resolver.js')
 const UDPContainer = require('./udp-container.js')
 const TCPContainer = require('./tcp-container.js')
 const { TCP, UDP } = require('./constants.js')
 const Logger = require('../utils/logger.js')
 
 class IPLayer extends EventEmitter {
-  #dnsResolver = /** @type{DNSResolver}*/ null
   #udpContainer = /** @type{UDPContainer}*/ null
   #tcpContainer = /** @type{TCPContainer} */ null
   #logger = /** @type{Logger}*/ null
@@ -14,18 +12,10 @@ class IPLayer extends EventEmitter {
   constructor({ logger, tcpSocketFactory, udpSocketFactory } = {}) {
     super()
     this.#logger = logger || new Logger({ logLevel: 0 })
-    this.#dnsResolver = new DNSResolver({ logger })
     this.#udpContainer = new UDPContainer({ logger, udpSocketFactory })
     this.#tcpContainer = new TCPContainer({ logger, tcpSocketFactory })
-    this.#dnsResolver.on('DNSResponseParsed', this.#dnsParsed.bind(this))
-    this.#dnsResolver.on('DNSResponse', this.#emitIPv4Packet.bind(this))
     this.#udpContainer.on('udpMessage', this.#emitIPv4Packet.bind(this))
     this.#tcpContainer.on('ip4Packet', this.#emitIPv4Packet.bind(this))
-  }
-
-  #dnsParsed({ request, response }) {
-    // this.#logger.debug(() => `dns parsed ${request.id}`)
-    this.emit('DNSResponseParsed', { request, response })
   }
 
   /**
@@ -42,7 +32,6 @@ class IPLayer extends EventEmitter {
   }
 
   close() {
-    this.#dnsResolver.close()
     this.#udpContainer.close()
     this.#tcpContainer.close()
   }
@@ -53,10 +42,6 @@ class IPLayer extends EventEmitter {
   send(ip4Packet) {
     if (ip4Packet.protocol === UDP) {
       const udpMessage = ip4Packet.getUDPMessage()
-
-      if (udpMessage.isDnsRequest()) {
-        return this.#dnsResolver.request(ip4Packet, udpMessage)
-      }
 
       return this.#udpContainer.send(ip4Packet, udpMessage)
     }

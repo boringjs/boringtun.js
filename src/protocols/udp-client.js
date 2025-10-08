@@ -8,6 +8,8 @@ const Logger = require('../utils/logger.js')
 const EXPIRE_DELTA = 60_000
 const TICK_DELTA = 1000
 
+const UDP_CLIENT = '[UDP_CLIENT]'
+
 class UDPClient extends EventEmitter {
   #expire = 0
   #sourceIP = /** @type{IP4Address|null}*/ null
@@ -19,23 +21,33 @@ class UDPClient extends EventEmitter {
   #udpSocketFactory /** @type{function(string): Socket} */ = null // todo fix types
   #tick = null
   #name = ''
-  #id
+  /** @type {number} */
+  #id = null
+  /** @type {string} */
+  #type
 
-  static #idCnt = 0
-  static #idInc() {
-    return UDPClient.#idCnt++
-  }
-
-  constructor({ sourceIP, sourcePort, destinationIP, destinationPort, logger, udpSocketFactory = dgram.createSocket }) {
+  constructor({
+    id,
+    sourceIP,
+    sourcePort,
+    destinationIP,
+    destinationPort,
+    logger,
+    udpSocketFactory = dgram.createSocket,
+  }) {
     super()
-    UDPClient.#idInc()
+    this.#id = id
     this.#sourceIP = new IP4Address(sourceIP)
     this.#sourcePort = sourcePort
     this.#destinationIP = new IP4Address(destinationIP)
     this.#destinationPort = destinationPort
     this.#udpSocketFactory = dgram.createSocket // udpSocketFactory
     this.#logger = logger || new Logger()
-    this.#name = `udp-${this.#id} ${this.#sourceIP}:${this.#sourcePort} -> ${this.#destinationIP}:${this.#destinationPort}`
+    this.#name = `${this.#type}:${this.#sourceIP}:${this.#sourcePort} -> ${this.#destinationIP}:${this.#destinationPort}`
+  }
+
+  get id() {
+    return this.#id
   }
 
   #update() {
@@ -52,14 +64,19 @@ class UDPClient extends EventEmitter {
     if (this.#expire < Date.now()) {
       clearInterval(this.#tick)
       this.#tick = null
-      this.#logger.debug(() => `Close by timeout ${this.#name}`)
+      this.#logger.debug(() => {
+        const f = `${UDP_CLIENT}[id-${this.id}][${this.#name}]`
+        const msg = 'Close by timeout'
+
+        return { f, msg }
+      })
       this.close()
     }
   }
 
-  send(message) {
+  send(ip4Packet, udpMessage) {
     this.#update()
-    this.#udpSocket.send(message, this.#destinationPort, this.#destinationIP.toString())
+    this.#udpSocket.send(udpMessage.data, this.#destinationPort, this.#destinationIP.toString())
   }
 
   #onMessage(message, { address, port }) {
