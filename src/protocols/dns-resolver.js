@@ -101,7 +101,14 @@ class DNSResolver extends EventEmitter {
     if (this.#udpSocket) {
       return
     }
-    this.#udpSocket = this.#udpSocketFactory({ type: 'udp4', peerId: this.#peerId })
+    this.#udpSocket = this.#udpSocketFactory({
+      type: 'udp4',
+      peerId: this.#peerId,
+      sourceIP: null,
+      sourcePort: null,
+      destinationIP: null,
+      destinationPort: null,
+    })
     this.#udpConnectionTimeout = setInterval(this.#cleanUDPConnections.bind(this), GC_INTERVAL)
     this.#udpSocket.on('message', this.#onReceiveDNSMessage.bind(this))
   }

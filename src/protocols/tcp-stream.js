@@ -243,7 +243,7 @@ class TCPStream extends EventEmitter {
     }
   }
 
-  #connect(ipv4Packet) {
+  async #connect(ipv4Packet) {
     if (this.#socketStage !== 'new') {
       this.#logger.error(() => ({
         f: `${TCP_STREAM}[id-${this.#socketId}]`,
@@ -267,10 +267,22 @@ class TCPStream extends EventEmitter {
     const port = this.#destinationPort
     const host = this.#destinationIP.toString()
 
-    this.#socket = this.#tcpSocketFactory(
-      { host, port, sourcePort, sourceIP, socketId: this.#socketId },
+    this.#socket = await this.#tcpSocketFactory(
+      {
+        host,
+        port,
+        sourcePort,
+        sourceIP,
+        socketId: this.#socketId,
+      },
       this.#onSocketConnect.bind(this, ipv4Packet),
-    )
+    ).catch(() => null)
+
+    if (!this.#socket) {
+      this.#onSocketError(new Error('Connection failed.'))
+      return
+    }
+
     this.#socket.on('data', (this.#onSocketDataBind = this.#onSocketData.bind(this)))
     this.#socket.on('error', (this.#onSocketErrorBind = this.#onSocketError.bind(this)))
     this.#socket.on('close', (this.#closeBind = this.close.bind(this)))

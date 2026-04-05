@@ -56,7 +56,14 @@ class UDPClient extends EventEmitter {
   #update() {
     if (!this.#udpSocket) {
       this.#logger.debug(() => `Create ${this.#name}`)
-      this.#udpSocket = this.#udpSocketFactory({ type: 'udp4', peerId: this.#peerId })
+      this.#udpSocket = this.#udpSocketFactory({
+        type: 'udp4',
+        peerId: this.#peerId,
+        sourceIP: this.#sourceIP.toString(),
+        sourcePort: this.#sourcePort,
+        destinationIP: this.#destinationIP.toString(),
+        destinationPort: this.#destinationPort,
+      })
       this.#udpSocket.on('message', this.#onMessage.bind(this))
       this.#tick = setInterval(this.#checkExpire.bind(this), TICK_DELTA)
     }
