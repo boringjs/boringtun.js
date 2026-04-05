@@ -42,7 +42,7 @@ class IP4Address {
         this.#mask = Buffer.from([0, 0, 0, 0])
         for (let i = 0; i < maskNum; i++) {
           const byte = (i - (i % 8)) / 8
-          this.#mask[byte] += 1 << i % 8
+          this.#mask[byte] += 1 << (7 - (i % 8))
         }
       }
 

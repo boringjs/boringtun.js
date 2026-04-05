@@ -206,7 +206,7 @@ class IP4Packet {
     offset += 4
 
     if (this.#headerLength > 20) {
-      this.#options = Buffer.from(this.#headerLength - 20)
+      this.#options = Buffer.alloc(this.#headerLength - 20)
       buffer.copy(this.#options, 0, offset, this.#headerLength)
       offset += this.#options.length
     }

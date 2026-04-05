@@ -267,18 +267,21 @@ class TCPStream extends EventEmitter {
     const port = this.#destinationPort
     const host = this.#destinationIP.toString()
 
-    this.#socket = await this.#tcpSocketFactory(
-      {
-        host,
-        port,
-        sourcePort,
-        sourceIP,
-        socketId: this.#socketId,
-      },
-      this.#onSocketConnect.bind(this, ipv4Packet),
+    this.#socket = await Promise.resolve(
+      this.#tcpSocketFactory(
+        {
+          host,
+          port,
+          sourcePort,
+          sourceIP,
+          socketId: this.#socketId,
+        },
+        this.#onSocketConnect.bind(this, ipv4Packet),
+      ),
     ).catch(() => null)
 
     if (!this.#socket) {
+      clearTimeout(this.#connectionTimeout)
       this.#onSocketError(new Error('Connection failed.'))
       return
     }
@@ -325,7 +328,9 @@ class TCPStream extends EventEmitter {
       // this.#logger.debug(() => `[TCP_STREAM] fin client ${this.#socketDebugId}`)
       this.#tcpStage = 'fin_client'
       this.#finStage(incomingTCPMessage)
-      this.close()
+      if (this.#socket && this.#socket.writable) {
+        this.#socket.end()
+      }
       return
     }
 
@@ -352,7 +357,8 @@ class TCPStream extends EventEmitter {
     } // return
 
     if (incomingTCPMessage.ACK && incomingTCPMessage.data.length === 0) {
-      if (incomingTCPMessage.acknowledgmentNumber > this.#sequenceNumber) {
+      if (((incomingTCPMessage.acknowledgmentNumber - this.#sequenceNumber) & 0xffffffff) !== 0 &&
+          ((incomingTCPMessage.acknowledgmentNumber - this.#sequenceNumber) & 0xffffffff) < 0x80000000) {
         return
       }
 
@@ -386,6 +392,8 @@ class TCPStream extends EventEmitter {
       log: `close socket`,
     }))
 
+    clearTimeout(this.#connectionTimeout)
+
     if (this.#socket) {
       this.#socket.off('data', this.#onSocketDataBind)
       this.#socket.off('error', this.#onSocketErrorBind)
@@ -396,7 +404,7 @@ class TCPStream extends EventEmitter {
 
     if (this.#tcpStage === 'established') {
       this.#tcpStage = 'fin_init'
-      this.#emitIp4Packet(this.#createTCP({ FIN: true }))
+      this.#emitIp4Packet(this.#createTCP({ FIN: true, ACK: true }))
     }
   }
 }

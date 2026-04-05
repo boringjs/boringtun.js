@@ -280,4 +280,255 @@ describe('ipv4 packet', () => {
     expect(tcpMessage.sourcePort).toBe(62407)
     expect(tcpMessage.destinationPort).toBe(80)
   })
+
+  test('parse ipv4 packet with IP options', () => {
+    // Build a packet with IP options (header length > 20)
+    // Using a real-world NOP+NOP+Timestamp option (12 bytes)
+    const baseBuffer = Buffer.from(
+      'RQAAfgAAQABABvubCggAEF241w7LfQBQ4L6GTQWBDfWAGAgEBQMAAAEBCApIq7vwRD8MpEdFVCAvIEhUVFAvMS4xDQpIb3N0OiBleGFtcGxlLmNvbQ0KVXNlci1BZ2VudDogY3VybC84LjQuMA0KQWNjZXB0OiAqLyoNCg0K',
+      'base64',
+    )
+    const ipv4Packet = new IP4Packet(baseBuffer)
+    // Should not throw (previously crashed with Buffer.from(number))
+    expect(ipv4Packet.protocol).toBe('TCP')
+    expect(ipv4Packet.toBuffer()).toEqual(baseBuffer)
+  })
+})
+
+describe('IP4Address non-octet masks', () => {
+  test('/25 mask should be 255.255.255.128', () => {
+    const addr = new IP4Address('10.0.0.0/25')
+    expect(addr.match('10.0.0.0')).toBeTruthy()
+    expect(addr.match('10.0.0.127')).toBeTruthy()
+    expect(addr.match('10.0.0.128')).toBeFalsy()
+    expect(addr.match('10.0.0.255')).toBeFalsy()
+  })
+
+  test('/1 mask should be 128.0.0.0', () => {
+    const addr = new IP4Address('128.0.0.0/1')
+    expect(addr.match('192.168.1.1')).toBeTruthy()  // 192 has high bit set
+    expect(addr.match('127.0.0.1')).toBeFalsy()     // 127 does not
+  })
+
+  test('/9 mask should be 255.128.0.0', () => {
+    const addr = new IP4Address('10.0.0.0/9')
+    expect(addr.match('10.0.0.1')).toBeTruthy()
+    expect(addr.match('10.127.255.255')).toBeTruthy()
+    expect(addr.match('10.128.0.0')).toBeFalsy()
+  })
+
+  test('/31 mask should be 255.255.255.254', () => {
+    const addr = new IP4Address('192.168.1.0/31')
+    expect(addr.match('192.168.1.0')).toBeTruthy()
+    expect(addr.match('192.168.1.1')).toBeTruthy()
+    expect(addr.match('192.168.1.2')).toBeFalsy()
+  })
+})
+
+describe('TCPStream', () => {
+  const makeStream = (overrides = {}) => {
+    return new TCPStream({
+      sourceIP: new IP4Address('10.0.0.1'),
+      destinationIP: new IP4Address('93.184.215.14'),
+      sourcePort: 12345,
+      destinationPort: 80,
+      hash: 'test-hash',
+      socketId: 1,
+      tcpSocketFactory: ({ host, port }, callback) => {
+        return new Promise((resolve) => {
+          const socket = net.connect({ host: '127.0.0.1', port: 1 }, callback)
+          socket.on('error', () => {}) // suppress
+          resolve(socket)
+        })
+      },
+      ...overrides,
+    })
+  }
+
+  test('SYN handshake emits SYN+ACK', (done) => {
+    const stream = makeStream({
+      tcpSocketFactory: (opts, callback) => {
+        return new Promise((resolve) => {
+          // Simulate connected socket
+          const { PassThrough } = require('stream')
+          const fakeSocket = new PassThrough()
+          fakeSocket.destroy = () => {}
+          setTimeout(callback, 0)
+          resolve(fakeSocket)
+        })
+      },
+    })
+
+    stream.on('ip4Packet', (ip4Packet) => {
+      const tcp = ip4Packet.getTCPMessage()
+      if (tcp.SYN && tcp.ACK) {
+        expect(tcp.SYN).toBe(true)
+        expect(tcp.ACK).toBe(true)
+        expect(tcp.acknowledgmentNumber).toBe(1001)
+        stream.close()
+        done()
+      }
+    })
+
+    stream.send(new TCPMessage({
+      sourceIP: '10.0.0.1',
+      destinationIP: '93.184.215.14',
+      sourcePort: 12345,
+      destinationPort: 80,
+      SYN: true,
+      sequenceNumber: 1000,
+      window: 65535,
+    }))
+  })
+
+  test('server close sends FIN+ACK not bare FIN', async () => {
+    const { PassThrough } = require('stream')
+    const fakeSocket = new PassThrough()
+    fakeSocket.destroy = () => {}
+
+    const stream = makeStream({
+      tcpSocketFactory: (opts, callback) => {
+        return new Promise((resolve) => {
+          setTimeout(callback, 0)
+          resolve(fakeSocket)
+        })
+      },
+    })
+
+    const packets = []
+    stream.on('ip4Packet', (ip4Packet) => {
+      packets.push(ip4Packet.getTCPMessage())
+    })
+
+    // SYN
+    stream.send(new TCPMessage({
+      sourceIP: '10.0.0.1',
+      destinationIP: '93.184.215.14',
+      sourcePort: 12345,
+      destinationPort: 80,
+      SYN: true,
+      sequenceNumber: 1000,
+      window: 65535,
+    }))
+
+    await delay(50)
+
+    // Complete handshake (ACK of SYN+ACK)
+    const synAck = packets.find((p) => p.SYN && p.ACK)
+    stream.send(new TCPMessage({
+      sourceIP: '10.0.0.1',
+      destinationIP: '93.184.215.14',
+      sourcePort: 12345,
+      destinationPort: 80,
+      ACK: true,
+      sequenceNumber: 1001,
+      acknowledgmentNumber: synAck.sequenceNumber + 1,
+      window: 65535,
+    }))
+
+    // Server-initiated close
+    stream.close()
+
+    const finPacket = packets.find((p) => p.FIN)
+    expect(finPacket).toBeDefined()
+    expect(finPacket.ACK).toBe(true)
+  })
+
+  test('default tcpSocketFactory does not crash with .catch()', async () => {
+    // The default factory returns net.Socket (not Promise).
+    // Wrapped in Promise.resolve(), .catch() should work.
+    const stream = new TCPStream({
+      sourceIP: new IP4Address('10.0.0.1'),
+      destinationIP: new IP4Address('127.0.0.1'),
+      sourcePort: 12345,
+      destinationPort: 1, // port 1 will fail to connect
+      hash: 'test-hash',
+      socketId: 1,
+    })
+
+    const packets = []
+    stream.on('ip4Packet', (ip4Packet) => {
+      packets.push(ip4Packet.getTCPMessage())
+    })
+
+    // This should not throw TypeError: .catch is not a function
+    stream.send(new TCPMessage({
+      sourceIP: '10.0.0.1',
+      destinationIP: '127.0.0.1',
+      sourcePort: 12345,
+      destinationPort: 1,
+      SYN: true,
+      sequenceNumber: 1000,
+      window: 65535,
+    }))
+
+    await delay(100)
+    stream.close()
+  }, 5000)
+
+  test('client FIN uses socket.end() not socket.destroy()', async () => {
+    const { PassThrough } = require('stream')
+    const fakeSocket = new PassThrough()
+    let endCalled = false
+    let destroyCalled = false
+    fakeSocket.end = () => { endCalled = true }
+    fakeSocket.destroy = () => { destroyCalled = true }
+
+    const stream = makeStream({
+      tcpSocketFactory: (opts, callback) => {
+        return new Promise((resolve) => {
+          setTimeout(callback, 0)
+          resolve(fakeSocket)
+        })
+      },
+    })
+
+    const packets = []
+    stream.on('ip4Packet', (ip4Packet) => {
+      packets.push(ip4Packet.getTCPMessage())
+    })
+
+    // SYN
+    stream.send(new TCPMessage({
+      sourceIP: '10.0.0.1',
+      destinationIP: '93.184.215.14',
+      sourcePort: 12345,
+      destinationPort: 80,
+      SYN: true,
+      sequenceNumber: 1000,
+      window: 65535,
+    }))
+
+    await delay(50)
+
+    // Complete handshake
+    const synAck = packets.find((p) => p.SYN && p.ACK)
+    stream.send(new TCPMessage({
+      sourceIP: '10.0.0.1',
+      destinationIP: '93.184.215.14',
+      sourcePort: 12345,
+      destinationPort: 80,
+      ACK: true,
+      sequenceNumber: 1001,
+      acknowledgmentNumber: synAck.sequenceNumber + 1,
+      window: 65535,
+    }))
+
+    // Client sends FIN
+    stream.send(new TCPMessage({
+      sourceIP: '10.0.0.1',
+      destinationIP: '93.184.215.14',
+      sourcePort: 12345,
+      destinationPort: 80,
+      FIN: true,
+      ACK: true,
+      sequenceNumber: 1001,
+      acknowledgmentNumber: synAck.sequenceNumber + 1,
+      window: 65535,
+    }))
+
+    expect(endCalled).toBe(true)
+    // destroy should NOT have been called by the FIN handler
+    expect(destroyCalled).toBe(false)
+  })
 })
