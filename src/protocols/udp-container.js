@@ -123,6 +123,12 @@ class UdpContainer extends EventEmitter {
       client.close()
     }
   }
+
+  getStats() {
+    return {
+      activeClients: this.#udpClients.size,
+    }
+  }
 }
 
 module.exports = UdpContainer

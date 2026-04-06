@@ -1,19 +1,13 @@
 {
   "name": "boringtunjs",
   "version": "0.1.10",
-  "description": "A userspace WireGuard VPN implementation for NodeJS based on BoringTun",
+  "description": "A userspace WireGuard VPN implementation for NodeJS — pure JavaScript",
   "main": "index.js",
   "repository": {
     "url": "git+ssh://git@github.com/boringjs/boringtun.js.git"
   },
   "scripts": {
-    "clean:boringtun": "rm -rf ./boringtun/target/release",
-    "clean:build": "rm -rf ./build",
-    "build:boringtun": "cd boringtun/boringtun && cargo build --lib --release --no-default-features --features \"ffi-bindings\"",
-    "build": "cmake-js compile",
-    "postinstall": "node ./install/postinstall.js",
     "test": "jest",
-    "update:gitmodules": "git submodule update",
     "lint": "eslint --fix --ext .js,.mjs ./src ./tests"
   },
   "keywords": [],
@@ -21,7 +15,6 @@
   "license": "BSD-3-Clause",
   "devDependencies": {
     "@types/jest": "^30.0.0",
-    "cmake-js": "^7.3.1",
     "eslint": "^9.36.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",

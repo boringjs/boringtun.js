@@ -1,6 +1,6 @@
 const { EventEmitter } = require('events')
 const IP4Address = require('./protocols/ip4-address.js')
-const { WireguardTunnelWrapper } = require('./tunnel.js')
+const { WireguardTunnel } = require('./wireguard-tunnel.js')
 const Logger = require('./utils/logger.js')
 const IPv4Packet = require('./protocols/ip4-packet')
 
@@ -55,19 +55,18 @@ class Peer extends EventEmitter {
     this.#publicKey = publicKey
     this.#name = name || this.#publicKey
 
-    this.#tunnel = new WireguardTunnelWrapper({
+    this.#tunnel = new WireguardTunnel({
       privateKey: privateServerKey,
       publicKey,
       keepAlive,
       index,
+      logger: this.#logger,
     })
 
     if (endpointAddress && endpointPort) {
       this.#endpointPort = endpointPort
       this.#endpointAddress = endpointAddress
     }
-    // todo create tick and test it
-    // todo emit handshake
   }
 
   get id() {
@@ -144,16 +143,16 @@ class Peer extends EventEmitter {
   }
 
   #tick() {
-    this.routing({ src: 'tick', ...this.#tunnel.tick() }) // todo create src in wireguard
+    this.routing({ src: 'tick', ...this.#tunnel.tick() })
   }
 
   routing({ data, type, src }) {
-    if (type === WireguardTunnelWrapper.WIREGUARD_DONE) {
+    if (type === WireguardTunnel.WIREGUARD_DONE) {
       // do nothing
       return
     }
 
-    if (type === WireguardTunnelWrapper.WRITE_TO_NETWORK) {
+    if (type === WireguardTunnel.WRITE_TO_NETWORK) {
       if (!this.endpoint) {
         return
       }
@@ -164,7 +163,7 @@ class Peer extends EventEmitter {
       return
     }
 
-    if (type === WireguardTunnelWrapper.WIREGUARD_ERROR) {
+    if (type === WireguardTunnel.WIREGUARD_ERROR) {
       this.#logger.error(() => {
         const f = `${PEER}[${this.name || this.#publicKey}][${src}]`
         const msg = `Error on wireguard.`
@@ -178,12 +177,12 @@ class Peer extends EventEmitter {
       return
     }
 
-    if (type === WireguardTunnelWrapper.WRITE_TO_TUNNEL_IPV4) {
+    if (type === WireguardTunnel.WRITE_TO_TUNNEL_IPV4) {
       this.#emitWriteToIPv4Layer(data)
       return
     }
 
-    if (type === WireguardTunnelWrapper.WRITE_TO_TUNNEL_IPV6) {
+    if (type === WireguardTunnel.WRITE_TO_TUNNEL_IPV6) {
       this.#logger.error('This implementation do not support IPV6')
       return
     }
@@ -196,11 +195,11 @@ class Peer extends EventEmitter {
   }
 
   read(msg, address, port) {
-    const result = { ...this.#tunnel.read(msg), src: 'read' } // todo: move to c++
+    const result = { ...this.#tunnel.read(msg), src: 'read' }
 
     const isHandshake = msg.readUInt32LE(0) === 1 && msg.length > 90
 
-    const isGood = result.type !== WireguardTunnelWrapper.WIREGUARD_ERROR
+    const isGood = result.type !== WireguardTunnel.WIREGUARD_ERROR
 
     if (address && port && isHandshake && isGood) {
       this.#logger.log(() => `for peer handshake: ${this.#publicKey}`)
@@ -228,7 +227,7 @@ class Peer extends EventEmitter {
   }
 
   write(msg) {
-    this.routing({ ...this.#tunnel.write(msg), src: 'write' }) // todo: move to c+++
+    this.routing({ ...this.#tunnel.write(msg), src: 'write' })
   }
 
   /**
@@ -241,7 +240,7 @@ class Peer extends EventEmitter {
   readHandshake({ message, address, port }) {
     const result = this.#tunnel.read(message)
 
-    if (result.type === WireguardTunnelWrapper.WIREGUARD_ERROR) {
+    if (result.type === WireguardTunnel.WIREGUARD_ERROR) {
       return false
     }
 
@@ -268,16 +267,27 @@ class Peer extends EventEmitter {
 
     this.#startTick()
 
-    this.routing({ ...this.#tunnel.forceHandshake(), src: 'forceHandshake' }) // todo move to c++
+    this.routing({ ...this.#tunnel.forceHandshake(), src: 'forceHandshake' })
   }
 
   getStat() {
-    // todo native get stat
+    const tunnel = this.#tunnel
+      ? this.#tunnel.getStats()
+      : { txBytes: 0, rxBytes: 0, lastHandshakeRtt: null, lastHandshake: 0 }
+    return {
+      publicKey: this.#publicKey,
+      name: this.#name,
+      endpoint: this.endpoint,
+      ...tunnel,
+    }
   }
 
   close() {
     this.#logger.debug(() => `close peer for ${this.#publicKey}`)
     clearInterval(this.#tickIntervalId)
+    this.#tickIntervalId = null
+    this.removeAllListeners()
+    this.#tunnel = null
   }
 }
 

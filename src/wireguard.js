@@ -1,7 +1,7 @@
 const dgram = require('dgram')
 const { EventEmitter } = require('events')
 const IPLayer = require('./protocols/ip-layer.js')
-const { checkValidKey, getPublicKeyFrom } = require('./tunnel.js')
+const { checkValidKey, getPublicKeyFrom } = require('./wireguard-tunnel.js')
 const Peer = require('./peer.js')
 const IP4Address = require('./protocols/ip4-address.js')
 const Logger = require('./utils/logger.js')
@@ -77,6 +77,10 @@ class Wireguard extends EventEmitter {
     return this.#listenPort
   }
 
+  get address() {
+    return this.#address
+  }
+
   getPeerByKey(key) {
     return this.#peersMap.get(key)
   }
@@ -146,6 +150,19 @@ class Wireguard extends EventEmitter {
     return this
   }
 
+  removePeer(publicKey) {
+    const peer = this.#peersMap.get(publicKey)
+    if (!peer) return false
+
+    peer.close()
+    this.#peersMap.delete(publicKey)
+    this.#peers = this.#peers.filter((p) => p.id !== publicKey)
+    if (peer.endpoint) {
+      this.#mapEndpointIpToPeer.delete(peer.endpoint)
+    }
+    return true
+  }
+
   listen() {
     this.#createServerListeners()
     this.#ipLayer = new IPLayer({
@@ -167,9 +184,26 @@ class Wireguard extends EventEmitter {
   }
 
   close() {
-    // todo: close tcp layer
-    // todo: stop server
-    // todo: stop peers
+    for (const peer of this.#peers) {
+      peer.close()
+    }
+    this.#peers = []
+    this.#peersMap.clear()
+    this.#mapEndpointIpToPeer.clear()
+
+    if (this.#ipLayer) {
+      this.#ipLayer.removeAllListeners()
+      this.#ipLayer.close()
+      this.#ipLayer = null
+    }
+
+    if (this.#server) {
+      this.#server.removeAllListeners()
+      this.#server.close()
+      this.#server = null
+    }
+
+    this.removeAllListeners()
   }
 
   /**
@@ -252,7 +286,13 @@ class Wireguard extends EventEmitter {
   }
 
   getStat() {
-    // todo get stat
+    return {
+      publicKey: this.#publicKey,
+      listenPort: this.#listenPort,
+      address: this.#address.toString(),
+      peers: this.#peers.map((peer) => peer.getStat()),
+      connections: this.#ipLayer ? this.#ipLayer.getStats() : null,
+    }
   }
 }
 

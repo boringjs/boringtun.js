@@ -36,6 +36,13 @@ class IPLayer extends EventEmitter {
     this.#tcpContainer.close()
   }
 
+  getStats() {
+    return {
+      tcp: this.#tcpContainer.getStats(),
+      udp: this.#udpContainer.getStats(),
+    }
+  }
+
   /**
    * @param {IP4Packet} ip4Packet
    */

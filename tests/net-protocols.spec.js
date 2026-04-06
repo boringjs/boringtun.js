@@ -306,8 +306,8 @@ describe('IP4Address non-octet masks', () => {
 
   test('/1 mask should be 128.0.0.0', () => {
     const addr = new IP4Address('128.0.0.0/1')
-    expect(addr.match('192.168.1.1')).toBeTruthy()  // 192 has high bit set
-    expect(addr.match('127.0.0.1')).toBeFalsy()     // 127 does not
+    expect(addr.match('192.168.1.1')).toBeTruthy() // 192 has high bit set
+    expect(addr.match('127.0.0.1')).toBeFalsy() // 127 does not
   })
 
   test('/9 mask should be 255.128.0.0', () => {
@@ -370,15 +370,17 @@ describe('TCPStream', () => {
       }
     })
 
-    stream.send(new TCPMessage({
-      sourceIP: '10.0.0.1',
-      destinationIP: '93.184.215.14',
-      sourcePort: 12345,
-      destinationPort: 80,
-      SYN: true,
-      sequenceNumber: 1000,
-      window: 65535,
-    }))
+    stream.send(
+      new TCPMessage({
+        sourceIP: '10.0.0.1',
+        destinationIP: '93.184.215.14',
+        sourcePort: 12345,
+        destinationPort: 80,
+        SYN: true,
+        sequenceNumber: 1000,
+        window: 65535,
+      }),
+    )
   })
 
   test('server close sends FIN+ACK not bare FIN', async () => {
@@ -401,30 +403,34 @@ describe('TCPStream', () => {
     })
 
     // SYN
-    stream.send(new TCPMessage({
-      sourceIP: '10.0.0.1',
-      destinationIP: '93.184.215.14',
-      sourcePort: 12345,
-      destinationPort: 80,
-      SYN: true,
-      sequenceNumber: 1000,
-      window: 65535,
-    }))
+    stream.send(
+      new TCPMessage({
+        sourceIP: '10.0.0.1',
+        destinationIP: '93.184.215.14',
+        sourcePort: 12345,
+        destinationPort: 80,
+        SYN: true,
+        sequenceNumber: 1000,
+        window: 65535,
+      }),
+    )
 
     await delay(50)
 
     // Complete handshake (ACK of SYN+ACK)
     const synAck = packets.find((p) => p.SYN && p.ACK)
-    stream.send(new TCPMessage({
-      sourceIP: '10.0.0.1',
-      destinationIP: '93.184.215.14',
-      sourcePort: 12345,
-      destinationPort: 80,
-      ACK: true,
-      sequenceNumber: 1001,
-      acknowledgmentNumber: synAck.sequenceNumber + 1,
-      window: 65535,
-    }))
+    stream.send(
+      new TCPMessage({
+        sourceIP: '10.0.0.1',
+        destinationIP: '93.184.215.14',
+        sourcePort: 12345,
+        destinationPort: 80,
+        ACK: true,
+        sequenceNumber: 1001,
+        acknowledgmentNumber: synAck.sequenceNumber + 1,
+        window: 65535,
+      }),
+    )
 
     // Server-initiated close
     stream.close()
@@ -452,15 +458,17 @@ describe('TCPStream', () => {
     })
 
     // This should not throw TypeError: .catch is not a function
-    stream.send(new TCPMessage({
-      sourceIP: '10.0.0.1',
-      destinationIP: '127.0.0.1',
-      sourcePort: 12345,
-      destinationPort: 1,
-      SYN: true,
-      sequenceNumber: 1000,
-      window: 65535,
-    }))
+    stream.send(
+      new TCPMessage({
+        sourceIP: '10.0.0.1',
+        destinationIP: '127.0.0.1',
+        sourcePort: 12345,
+        destinationPort: 1,
+        SYN: true,
+        sequenceNumber: 1000,
+        window: 65535,
+      }),
+    )
 
     await delay(100)
     stream.close()
@@ -471,8 +479,12 @@ describe('TCPStream', () => {
     const fakeSocket = new PassThrough()
     let endCalled = false
     let destroyCalled = false
-    fakeSocket.end = () => { endCalled = true }
-    fakeSocket.destroy = () => { destroyCalled = true }
+    fakeSocket.end = () => {
+      endCalled = true
+    }
+    fakeSocket.destroy = () => {
+      destroyCalled = true
+    }
 
     const stream = makeStream({
       tcpSocketFactory: (opts, callback) => {
@@ -489,43 +501,49 @@ describe('TCPStream', () => {
     })
 
     // SYN
-    stream.send(new TCPMessage({
-      sourceIP: '10.0.0.1',
-      destinationIP: '93.184.215.14',
-      sourcePort: 12345,
-      destinationPort: 80,
-      SYN: true,
-      sequenceNumber: 1000,
-      window: 65535,
-    }))
+    stream.send(
+      new TCPMessage({
+        sourceIP: '10.0.0.1',
+        destinationIP: '93.184.215.14',
+        sourcePort: 12345,
+        destinationPort: 80,
+        SYN: true,
+        sequenceNumber: 1000,
+        window: 65535,
+      }),
+    )
 
     await delay(50)
 
     // Complete handshake
     const synAck = packets.find((p) => p.SYN && p.ACK)
-    stream.send(new TCPMessage({
-      sourceIP: '10.0.0.1',
-      destinationIP: '93.184.215.14',
-      sourcePort: 12345,
-      destinationPort: 80,
-      ACK: true,
-      sequenceNumber: 1001,
-      acknowledgmentNumber: synAck.sequenceNumber + 1,
-      window: 65535,
-    }))
+    stream.send(
+      new TCPMessage({
+        sourceIP: '10.0.0.1',
+        destinationIP: '93.184.215.14',
+        sourcePort: 12345,
+        destinationPort: 80,
+        ACK: true,
+        sequenceNumber: 1001,
+        acknowledgmentNumber: synAck.sequenceNumber + 1,
+        window: 65535,
+      }),
+    )
 
     // Client sends FIN
-    stream.send(new TCPMessage({
-      sourceIP: '10.0.0.1',
-      destinationIP: '93.184.215.14',
-      sourcePort: 12345,
-      destinationPort: 80,
-      FIN: true,
-      ACK: true,
-      sequenceNumber: 1001,
-      acknowledgmentNumber: synAck.sequenceNumber + 1,
-      window: 65535,
-    }))
+    stream.send(
+      new TCPMessage({
+        sourceIP: '10.0.0.1',
+        destinationIP: '93.184.215.14',
+        sourcePort: 12345,
+        destinationPort: 80,
+        FIN: true,
+        ACK: true,
+        sequenceNumber: 1001,
+        acknowledgmentNumber: synAck.sequenceNumber + 1,
+        window: 65535,
+      }),
+    )
 
     expect(endCalled).toBe(true)
     // destroy should NOT have been called by the FIN handler

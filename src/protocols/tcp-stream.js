@@ -357,8 +357,10 @@ class TCPStream extends EventEmitter {
     } // return
 
     if (incomingTCPMessage.ACK && incomingTCPMessage.data.length === 0) {
-      if (((incomingTCPMessage.acknowledgmentNumber - this.#sequenceNumber) & 0xffffffff) !== 0 &&
-          ((incomingTCPMessage.acknowledgmentNumber - this.#sequenceNumber) & 0xffffffff) < 0x80000000) {
+      if (
+        ((incomingTCPMessage.acknowledgmentNumber - this.#sequenceNumber) & 0xffffffff) !== 0 &&
+        ((incomingTCPMessage.acknowledgmentNumber - this.#sequenceNumber) & 0xffffffff) < 0x80000000
+      ) {
         return
       }
 

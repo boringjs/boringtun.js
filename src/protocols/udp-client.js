@@ -124,6 +124,10 @@ class UDPClient extends EventEmitter {
   }
 
   close() {
+    if (this.#tick) {
+      clearInterval(this.#tick)
+      this.#tick = null
+    }
     if (this.#udpSocket) {
       this.#udpSocket.close()
       this.#udpSocket = null

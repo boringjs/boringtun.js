@@ -75,6 +75,12 @@ class TCPContainer extends EventEmitter {
       tcpStream.close()
     }
   }
+
+  getStats() {
+    return {
+      activeConnections: this.#tcpConnections.size,
+    }
+  }
 }
 
 module.exports = TCPContainer
