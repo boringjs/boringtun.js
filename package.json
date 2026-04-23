@@ -1,6 +1,6 @@
 {
   "name": "boringtunjs",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "A userspace WireGuard VPN implementation for NodeJS — pure JavaScript",
   "main": "index.js",
   "repository": {
