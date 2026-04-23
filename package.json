@@ -6,6 +6,13 @@
   "repository": {
     "url": "git+ssh://git@github.com/boringjs/boringtun.js.git"
   },
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "index.js",
+    "src/"
+  ],
   "scripts": {
     "test": "node --test 'tests/*.spec.js'",
     "lint": "eslint --fix --ext .js,.mjs ./src ./tests"
