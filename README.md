@@ -218,7 +218,7 @@ npm run lint
 Test layout:
 
 - `tests/crypto.spec.js` — RFC 7539 / RFC 7693 test vectors for ChaCha20-Poly1305 and BLAKE2s
-- `tests/bindings.spec.js` — end-to-end handshake and data packet tests
+- `tests/tunnel.spec.js` — end-to-end handshake and data packet tests
 - `tests/net-protocols.spec.js` — TCP/UDP/DNS stack tests
 
 ## Acknowledgments
