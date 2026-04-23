@@ -4,11 +4,9 @@
 boringtun
 build
 cmake-build-debug
-lib
 node_modules
 tmp
 .gitignore
-.gitmodules
 CMakeLists.txt
 jest.config.js
 tests
