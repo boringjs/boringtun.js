@@ -46,6 +46,15 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - run: npm ci
+
+      - name: Debug OIDC claim
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = await core.getIDToken('npm:registry.npmjs.org')
+            const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString())
+            core.info(JSON.stringify(payload, null, 2))
+
       - run: npm publish --provenance --access public
 
       - name: Create GitHub Release
