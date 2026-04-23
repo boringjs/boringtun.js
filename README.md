@@ -199,11 +199,16 @@ const wg = new Wireguard({ privateKey, listenPort: 51820, address: '10.8.0.1', l
 
 ## Limitations
 
-- **Only TCP and UDP traffic exits the tunnel.** The built-in IP layer intercepts and forwards TCP streams and UDP datagrams to the host. Any other IP protocol (ICMP, SCTP, GRE, etc.) is not handled and will be silently dropped.
-- **IPv4 only.** IPv6 packets are recognized at the WireGuard layer but not routed through the IP stack.
+- **Only TCP and UDP traffic exits the tunnel.** The built-in IP layer intercepts and forwards TCP streams and UDP datagrams to the host. Any other IP protocol (ICMP, SCTP, GRE, etc.) is silently dropped — Node.js has no raw socket API, so forwarding these from userspace isn't possible without a native module or a privileged helper.
+- **IPv4 only (for now).** IPv6 packets are recognized at the WireGuard layer but not routed through the IP stack. IPv6 support is planned as the next major milestone — the WireGuard `WRITE_TO_TUNNEL_IPV6` result type is already wired, just the IP-layer side is missing.
 - **Single-threaded crypto.** All ChaCha20-Poly1305, Poly1305, and BLAKE2s operations run in the main JS event loop. Throughput is limited accordingly.
 - **No kernel TUN integration.** This is a fully userspace implementation; it does not create a system-level interface.
 - **Rate-limiting is not enforced.** Cookie replies are parsed but not generated — this library is intended as a client, not a DoS-resistant server.
+
+## Roadmap
+
+- **IPv6 support** — extend the IP layer to parse and emit IPv6 packets alongside IPv4, handling TCP/UDP over both.
+- **Custom protocol handlers** — expose a callback/factory hook (same shape as `addTCPSocketFactory` / `addUDPSocketFactory`) so users can intercept ICMP, SCTP, GRE, or any other IP protocol the built-in IP layer currently drops. The library still can't talk raw sockets itself, but users with a native helper, logging sink, or external daemon can wire it in.
 
 ## Development
 
