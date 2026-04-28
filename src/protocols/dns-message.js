@@ -91,7 +91,7 @@ class DNSMessage {
     }
 
     this.#id = v
-    this.#id = this.#data.writeUInt16BE(this.#id)
+    this.#data.writeUInt16BE(this.#id)
   }
 
   get data() {
