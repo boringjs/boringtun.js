@@ -201,14 +201,20 @@ class Peer extends EventEmitter {
 
     const isGood = result.type !== WireguardTunnel.WIREGUARD_ERROR
 
-    if (address && port && isHandshake && isGood) {
-      this.#logger.log(() => `for peer handshake: ${this.#publicKey}`)
-      const oldEndpoint = this.endpoint
-
-      this.endpointAddress = address
-      this.endpointPort = port
-      this.#emitUpdateEndpoint({ oldEndpoint })
-      this.#startTick()
+    if (address && port && isGood) {
+      const moved = this.endpointAddress !== address || this.endpointPort !== port
+      if (isHandshake || moved) {
+        if (isHandshake) {
+          this.#logger.log(() => `for peer handshake: ${this.#publicKey}`)
+        }
+        const oldEndpoint = this.endpoint
+        this.endpointAddress = address
+        this.endpointPort = port
+        this.#emitUpdateEndpoint({ oldEndpoint })
+        if (isHandshake) {
+          this.#startTick()
+        }
+      }
     }
 
     if (!isGood) {

@@ -257,7 +257,7 @@ class Wireguard extends EventEmitter {
     const endpoint = `${address}:${port}`
 
     if (this.#mapEndpointIpToPeer.has(endpoint)) {
-      this.#mapEndpointIpToPeer.get(endpoint).read(message)
+      this.#mapEndpointIpToPeer.get(endpoint).read(message, address, port)
       return
     }
 
