@@ -102,7 +102,7 @@ class UdpContainer extends EventEmitter {
     }
 
     const type = this.#checkType({ ip4Packet, udpMessage })
-    const hash = this.#getHash({ peerId, type, sourceIP, sourcePort, destinationIP })
+    const hash = this.#getHash({ peerId, type, sourceIP, sourcePort, destinationIP, destinationPort })
 
     if (!this.#udpClients.has(hash)) {
       this.#createUDP({
