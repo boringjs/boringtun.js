@@ -25,6 +25,10 @@ class TCPStream extends EventEmitter {
   #sequenceNumberValue = 0
   #acknowledgmentNumberValue = 0
   #packetDeque = new Deque()
+  #sendQueue = new Deque()
+  #peerWindow = 65535
+  #peerLastAck = null
+  #paused = false
   #delta = 0
   #id = 0
   #logger = /** @type{Logger} */ null
@@ -132,27 +136,72 @@ class TCPStream extends EventEmitter {
    * @param {Buffer} data
    */
   #onSocketData(data) {
-    // this.#logger.debug(() => `[TCP_STREAM] data from socket ${this.#socketDebugId}: ${data.length}`)
-    let offsetFrom = 0
+    if (data.length === 0) return
+    this.#sendQueue.push(data)
+    this.#flushSendQueue()
+  }
 
-    while (offsetFrom < data.length) {
-      let offsetTo = offsetFrom + this.#delta
-      if (offsetTo >= data.length) {
-        offsetTo = data.length
+  /**
+   * Drain queued upstream bytes into IP4 packets, but respect the peer's
+   * advertised receive window. When the peer's window is full, pause the
+   * upstream socket and resume when an ACK frees space.
+   */
+  #flushSendQueue() {
+    while (this.#sendQueue.size > 0) {
+      const head = this.#sendQueue.shift()
+      let offsetFrom = 0
+
+      while (offsetFrom < head.length) {
+        const remaining = head.length - offsetFrom
+        const chunkSize = remaining > this.#delta ? this.#delta : remaining
+
+        if (this.#peerLastAck !== null) {
+          const diff = (this.#sequenceNumber - this.#peerLastAck) >>> 0
+          const inflight = diff > 0x80000000 ? 0 : diff
+          if (inflight + chunkSize > this.#peerWindow) {
+            // Window full — re-queue remainder and pause source.
+            this.#sendQueue.unshift(head.slice(offsetFrom))
+            if (!this.#paused && this.#socket) {
+              this.#paused = true
+              this.#socket.pause()
+            }
+            return
+          }
+        }
+
+        const offsetTo = offsetFrom + chunkSize
+        const subData = head.slice(offsetFrom, offsetTo)
+
+        const ip4Packet = this.#createTCP({
+          data: subData,
+          ACK: true,
+          PSH: offsetTo === head.length && this.#sendQueue.size === 0,
+        })
+
+        this.#emitIp4Packet(ip4Packet)
+
+        this.#sequenceNumber += subData.length
+        offsetFrom = offsetTo
       }
+    }
 
-      const subData = data.slice(offsetFrom, offsetTo)
+    if (this.#paused && this.#socket) {
+      this.#paused = false
+      this.#socket.resume()
+    }
+  }
 
-      const ip4Packet = this.#createTCP({
-        data: subData,
-        ACK: true,
-        PSH: offsetTo === data.length,
-      })
-
-      this.#emitIp4Packet(ip4Packet)
-
-      this.#sequenceNumber += subData.length
-      offsetFrom = offsetTo
+  /**
+   * Capture peer's ack/window on every incoming TCP message; flush queued
+   * outbound data if the window opened up.
+   */
+  #updatePeerAck(incomingTCPMessage) {
+    this.#peerLastAck = incomingTCPMessage.acknowledgmentNumber
+    if (incomingTCPMessage.window !== undefined) {
+      this.#peerWindow = incomingTCPMessage.window
+    }
+    if (this.#sendQueue.size > 0) {
+      this.#flushSendQueue()
     }
   }
 
@@ -350,9 +399,8 @@ class TCPStream extends EventEmitter {
 
     if (incomingTCPMessage.ACK && this.#tcpStage === 'syn') {
       this.#tcpStage = 'established'
-      // Update acknowledgment number to received sequence + 1
-      // old: this.#acknowledgmentNumber = incomingTCPMessage.sequenceNumber + 1
-      this.#sequenceNumber += 1 // replaced
+      this.#sequenceNumber += 1
+      this.#updatePeerAck(incomingTCPMessage)
       return
     } // return
 
@@ -364,20 +412,20 @@ class TCPStream extends EventEmitter {
         return
       }
 
+      this.#updatePeerAck(incomingTCPMessage)
       this.#writeDataToSocket()
       return
     } // return
 
     if (incomingTCPMessage.ACK) {
       this.#packetDeque.push(incomingTCPMessage)
-      // Update acknowledgment number to received sequence number (which already includes data length)
-      // old: this.#acknowledgmentNumber = incomingTCPMessage.sequenceNumber
       this.#acknowledgmentNumber =
         incomingTCPMessage.sequenceNumber +
         incomingTCPMessage.data.length +
         (incomingTCPMessage.FIN ? 1 : 0) +
-        (incomingTCPMessage.SYN ? 1 : 0) // replaced
+        (incomingTCPMessage.SYN ? 1 : 0)
       this.#emitIp4Packet(this.#createTCP({ ACK: true }))
+      this.#updatePeerAck(incomingTCPMessage)
     } else {
       this.#logger.error(() => ({ f: `${TCP_STREAM}[id-${this.#socketId}]`, log: `strange socket` }))
     }
