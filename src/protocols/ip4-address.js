@@ -28,7 +28,13 @@ class IP4Address {
 
       const [ip, mask] = init.split('/')
 
-      const tmp = ip.split('.').map((a) => parseInt(a, 10) % 256)
+      const tmp = ip.split('.').map((a) => {
+        const n = parseInt(a, 10)
+        if (!Number.isInteger(n) || n < 0 || n > 255) {
+          throw new TypeError('invalid ipv4 octet')
+        }
+        return n
+      })
 
       if (mask) {
         const maskNum = parseInt(mask)
