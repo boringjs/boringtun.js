@@ -197,7 +197,7 @@ class Peer extends EventEmitter {
   read(msg, address, port) {
     const result = { ...this.#tunnel.read(msg), src: 'read' }
 
-    const isHandshake = msg.readUInt32LE(0) === 1 && msg.length > 90
+    const isHandshake = msg.length > 90 && msg.readUInt32LE(0) === 1
 
     const isGood = result.type !== WireguardTunnel.WIREGUARD_ERROR
 
