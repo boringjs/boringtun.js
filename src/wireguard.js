@@ -29,8 +29,10 @@ class Wireguard extends EventEmitter {
       throw new Error('Invalid privateKey')
     }
 
-    if (typeof listenPort !== 'number' && listenPort > 0 && listenPort << 15) {
-      throw new Error('Invalid listenPort')
+    if (listenPort !== undefined) {
+      if (!Number.isInteger(listenPort) || listenPort < 1 || listenPort > 65535) {
+        throw new Error('Invalid listenPort')
+      }
     }
 
     if (
