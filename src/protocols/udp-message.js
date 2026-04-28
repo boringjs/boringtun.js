@@ -217,7 +217,7 @@ class UDPMessage {
       return false
     }
 
-    return (this.#data[2] & 0x80) === 1
+    return (this.#data[2] & 0x80) === 0x80
   }
 
   getDNSMessage() {
