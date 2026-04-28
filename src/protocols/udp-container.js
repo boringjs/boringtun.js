@@ -106,6 +106,7 @@ class UdpContainer extends EventEmitter {
 
     if (!this.#udpClients.has(hash)) {
       this.#createUDP({
+        peerId,
         sourceIP,
         destinationIP,
         sourcePort,
