@@ -271,6 +271,7 @@ class Peer extends EventEmitter {
       return
     }
 
+    this.#lastForceHandshake = Date.now()
     this.#startTick()
 
     this.routing({ ...this.#tunnel.forceHandshake(), src: 'forceHandshake' })
