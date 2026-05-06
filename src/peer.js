@@ -183,7 +183,7 @@ class Peer extends EventEmitter {
     }
 
     if (type === WireguardTunnel.WRITE_TO_TUNNEL_IPV6) {
-      this.#logger.error('This implementation do not support IPV6')
+      this.#logger.error(() => `${PEER}[${this.#name || this.#publicKey}] IPv6 not supported`)
       return
     }
 

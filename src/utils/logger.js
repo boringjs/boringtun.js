@@ -6,6 +6,7 @@ class Logger {
   #debug = console.debug
   #error = console.error
   #callback = null
+  #includeLevel = true
 
   static #logLevelMap = {
     undefined: 0,
@@ -30,9 +31,11 @@ class Logger {
    * @param {function} [options.info]
    * @param {function} [options.error]
    * @param {function} [options.callback] Fires only for enabled levels; suppressed levels are no-ops, by design, so the callback mirrors console output.
+   * @param {boolean} [options.includeLevel] When true (default) prepends `[LEVEL]` to every emitted log so output follows the `[LEVEL][LAYER][SUB] msg` convention shared across boringtunjs / boringmitm. Set to `false` if your sink already tags level externally.
    */
-  constructor({ logLevel = 0, log, warn, debug, info, error, callback = null } = {}) {
+  constructor({ logLevel = 0, log, warn, debug, info, error, callback = null, includeLevel = true } = {}) {
     this.callback = callback
+    this.#includeLevel = includeLevel !== false
     this.#logLevel = Logger.#logLevelMap[logLevel?.toString().toLowerCase()] ?? 0
     this.#log = log || this.#log
     this.#warn = warn || this.#warn
@@ -65,8 +68,14 @@ class Logger {
   /**
    * Dispatches a log call. If the first arg is a thunk, it's invoked lazily
    * (no work when the level is disabled, since the whole method is a no-op).
-   * A thunk may return an array — spread as multiple args to the sink — or a
-   * single value, passed as-is.
+   *
+   * Thunk return shapes:
+   *  - string  → `[LEVEL]${str}` (e.g. `[DEBUG][TUNNEL][PEER_1] msg`)
+   *  - array   → spread as multi-arg to the sink; `[LEVEL]` prepended to first string element
+   *  - object  → `f` field gets `[LEVEL]` prepended in front of the existing layer prefix
+   *
+   * The callback fires with the *unprefixed* `level` and the original log payload, so
+   * downstream consumers see structured fields without parsing the level back out.
    */
   #logInternal(level, logFn, logCallback, ...args) {
     if (typeof logCallback === 'function') {
@@ -74,11 +83,28 @@ class Logger {
 
       this.#callback?.({ level, log })
 
-      return Array.isArray(log) ? logFn(...log) : logFn(log)
+      const out = this.#includeLevel ? Logger.#applyLevelTag(level, log) : log
+      return Array.isArray(out) ? logFn(...out) : logFn(out)
     }
 
     this.#callback?.({ level, log: [logCallback, ...args].join(',') })
+    if (this.#includeLevel) {
+      return logFn(`[${level.toUpperCase()}]`, logCallback, ...args)
+    }
     return logFn(logCallback, ...args)
+  }
+
+  static #applyLevelTag(level, log) {
+    const tag = `[${level.toUpperCase()}]`
+    if (typeof log === 'string') return `${tag}${log}`
+    if (Array.isArray(log)) {
+      if (log.length === 0) return [tag]
+      return typeof log[0] === 'string' ? [`${tag}${log[0]}`, ...log.slice(1)] : [tag, ...log]
+    }
+    if (log && typeof log === 'object') {
+      return { ...log, f: log.f ? `${tag}${log.f}` : tag }
+    }
+    return [tag, log]
   }
 }
 

@@ -180,7 +180,7 @@ class WireguardTunnel {
 
   #formatHandshakeInitiation(forceResend) {
     if (this.#handshake.isInProgress() && !forceResend) {
-      this.#logger.debug(() => `[tunnel] formatHandshakeInitiation: already in progress, skipping`)
+      this.#logger.debug(() => `[TUNNEL] formatHandshakeInitiation: already in progress, skipping`)
       return { type: WIREGUARD_DONE, data: Buffer.alloc(0) }
     }
 
@@ -198,7 +198,7 @@ class WireguardTunnel {
       this.#timerTick('lastPacketSent')
       return { type: WRITE_TO_NETWORK, data: packet }
     } catch (e) {
-      this.#logger.warn(() => `[tunnel] formatHandshakeInitiation: error: ${e.message}`)
+      this.#logger.warn(() => `[TUNNEL] formatHandshakeInitiation: error: ${e.message}`)
       return { type: WIREGUARD_ERROR, data: Buffer.alloc(0) }
     }
   }
@@ -223,12 +223,12 @@ class WireguardTunnel {
     if (!parsed) {
       this.#logger.warn(
         () =>
-          `[tunnel] decapsulate: unparseable packet, length=${src.length} first4=${src.length >= 4 ? src.readUInt32LE(0) : 'N/A'}`,
+          `[TUNNEL] decapsulate: unparseable packet, length=${src.length} first4=${src.length >= 4 ? src.readUInt32LE(0) : 'N/A'}`,
       )
       return { type: WIREGUARD_ERROR, data: Buffer.alloc(0) }
     }
 
-    this.#logger.debug(() => `[tunnel] decapsulate: packet type=${parsed.type} length=${src.length}`)
+    this.#logger.debug(() => `[TUNNEL] decapsulate: packet type=${parsed.type} length=${src.length}`)
 
     switch (parsed.type) {
       case HANDSHAKE_INIT:
@@ -245,10 +245,10 @@ class WireguardTunnel {
   }
 
   #handleHandshakeInit(src) {
-    this.#logger.debug(() => `[tunnel] handleHandshakeInit`)
+    this.#logger.debug(() => `[TUNNEL] handleHandshakeInit`)
     const result = this.#handshake.receiveHandshakeInitiation(src)
     if (!result) {
-      this.#logger.warn(() => `[tunnel] handleHandshakeInit: handshake.receiveHandshakeInitiation returned null`)
+      this.#logger.warn(() => `[TUNNEL] handleHandshakeInit: handshake.receiveHandshakeInitiation returned null`)
       return { type: WIREGUARD_ERROR, data: Buffer.alloc(0) }
     }
 
@@ -256,7 +256,7 @@ class WireguardTunnel {
     const index = session.receivingIndex
     this.#sessions[index % N_SESSIONS] = session
     this.#logger.debug(
-      () => `[tunnel] handleHandshakeInit: session stored at slot ${index % N_SESSIONS}, receivingIndex=${index}`,
+      () => `[TUNNEL] handleHandshakeInit: session stored at slot ${index % N_SESSIONS}, receivingIndex=${index}`,
     )
 
     this.#timerTick('lastPacketReceived')
@@ -267,10 +267,10 @@ class WireguardTunnel {
   }
 
   #handleHandshakeResponse(src) {
-    this.#logger.debug(() => `[tunnel] handleHandshakeResponse`)
+    this.#logger.debug(() => `[TUNNEL] handleHandshakeResponse`)
     const session = this.#handshake.receiveHandshakeResponse(src)
     if (!session) {
-      this.#logger.warn(() => `[tunnel] handleHandshakeResponse: handshake.receiveHandshakeResponse returned null`)
+      this.#logger.warn(() => `[TUNNEL] handleHandshakeResponse: handshake.receiveHandshakeResponse returned null`)
       return { type: WIREGUARD_ERROR, data: Buffer.alloc(0) }
     }
 
@@ -280,7 +280,7 @@ class WireguardTunnel {
     this.#sessions[index] = session
     this.#logger.debug(
       () =>
-        `[tunnel] handleHandshakeResponse: session stored at slot ${index}, receivingIndex=${lIdx}, sending keepalive`,
+        `[TUNNEL] handleHandshakeResponse: session stored at slot ${index}, receivingIndex=${lIdx}, sending keepalive`,
     )
 
     this.#timerTick('lastPacketReceived')
@@ -291,7 +291,7 @@ class WireguardTunnel {
   }
 
   #handleCookieReply(src) {
-    this.#logger.debug(() => `[tunnel] handleCookieReply`)
+    this.#logger.debug(() => `[TUNNEL] handleCookieReply`)
     this.#handshake.receiveCookieReply(src)
     this.#timerTick('lastPacketReceived')
     this.#timerTick('cookieReceived')
@@ -304,19 +304,19 @@ class WireguardTunnel {
     const encryptedData = src.subarray(DATA_OFFSET)
 
     this.#logger.debug(
-      () => `[tunnel] handleData: receiverIdx=${receiverIdx} counter=${counter} encLen=${encryptedData.length}`,
+      () => `[TUNNEL] handleData: receiverIdx=${receiverIdx} counter=${counter} encLen=${encryptedData.length}`,
     )
 
     const idx = receiverIdx % N_SESSIONS
     const session = this.#sessions[idx]
     if (!session) {
-      this.#logger.warn(() => `[tunnel] handleData: no session at slot ${idx}`)
+      this.#logger.warn(() => `[TUNNEL] handleData: no session at slot ${idx}`)
       return { type: WIREGUARD_ERROR, data: Buffer.alloc(0) }
     }
 
     const plaintext = session.receivePacketData(receiverIdx, counter, encryptedData)
     if (plaintext === null) {
-      this.#logger.debug(() => `[tunnel] handleData: session.receivePacketData returned null`)
+      this.#logger.debug(() => `[TUNNEL] handleData: session.receivePacketData returned null`)
       return { type: WIREGUARD_ERROR, data: Buffer.alloc(0) }
     }
 
@@ -328,7 +328,7 @@ class WireguardTunnel {
 
   #validateDecapsulatedPacket(packet) {
     if (packet.length === 0) {
-      this.#logger.debug(() => `[tunnel] validateDecapsulatedPacket: keepalive (empty)`)
+      this.#logger.debug(() => `[TUNNEL] validateDecapsulatedPacket: keepalive (empty)`)
       return { type: WIREGUARD_DONE, data: Buffer.alloc(0) }
     }
 
@@ -337,7 +337,7 @@ class WireguardTunnel {
       const len = packet.readUInt16BE(2)
       if (len > packet.length) {
         this.#logger.warn(
-          () => `[tunnel] validateDecapsulatedPacket: IPv4 length field ${len} > packet.length ${packet.length}`,
+          () => `[TUNNEL] validateDecapsulatedPacket: IPv4 length field ${len} > packet.length ${packet.length}`,
         )
         return { type: WIREGUARD_ERROR, data: Buffer.alloc(0) }
       }
@@ -351,7 +351,7 @@ class WireguardTunnel {
       const len = payloadLen + 40
       if (len > packet.length) {
         this.#logger.warn(
-          () => `[tunnel] validateDecapsulatedPacket: IPv6 length field ${len} > packet.length ${packet.length}`,
+          () => `[TUNNEL] validateDecapsulatedPacket: IPv6 length field ${len} > packet.length ${packet.length}`,
         )
         return { type: WIREGUARD_ERROR, data: Buffer.alloc(0) }
       }
@@ -361,7 +361,7 @@ class WireguardTunnel {
     }
 
     this.#logger.warn(
-      () => `[tunnel] validateDecapsulatedPacket: invalid IP packet, version=${version} length=${packet.length}`,
+      () => `[TUNNEL] validateDecapsulatedPacket: invalid IP packet, version=${version} length=${packet.length}`,
     )
     return { type: WIREGUARD_ERROR, data: Buffer.alloc(0) }
   }
@@ -404,7 +404,7 @@ class WireguardTunnel {
 
     for (let i = 0; i < N_SESSIONS; i++) {
       if (now - this.#sessionTimers[i] > REJECT_AFTER_TIME && this.#sessions[i]) {
-        this.#logger.debug(() => `[tunnel] tick: expiring session at slot ${i}`)
+        this.#logger.debug(() => `[TUNNEL] tick: expiring session at slot ${i}`)
         this.#sessions[i] = null
         this.#sessionTimers[i] = now
       }
@@ -419,7 +419,7 @@ class WireguardTunnel {
     }
 
     if (now - this.#timers.sessionEstablished >= REJECT_AFTER_TIME * 3) {
-      this.#logger.info(() => `[tunnel] tick: connection expired (3x REJECT_AFTER_TIME)`)
+      this.#logger.info(() => `[TUNNEL] tick: connection expired (3x REJECT_AFTER_TIME)`)
       this.#handshake.setExpired()
       this.#clearAll()
       return { type: WIREGUARD_ERROR, data: Buffer.alloc(0) }
@@ -428,14 +428,14 @@ class WireguardTunnel {
     const handshakeTimer = this.#handshake.timer()
     if (handshakeTimer !== null) {
       if (now - this.#timers.lastHandshakeStarted >= REKEY_ATTEMPT_TIME) {
-        this.#logger.warn(() => `[tunnel] tick: handshake attempt timeout (REKEY_ATTEMPT_TIME)`)
+        this.#logger.warn(() => `[TUNNEL] tick: handshake attempt timeout (REKEY_ATTEMPT_TIME)`)
         this.#handshake.setExpired()
         this.#clearAll()
         return { type: WIREGUARD_ERROR, data: Buffer.alloc(0) }
       }
 
       if (Date.now() - handshakeTimer >= REKEY_TIMEOUT) {
-        this.#logger.debug(() => `[tunnel] tick: handshake retry (REKEY_TIMEOUT)`)
+        this.#logger.debug(() => `[TUNNEL] tick: handshake retry (REKEY_TIMEOUT)`)
         handshakeRequired = true
       }
     } else {
@@ -444,7 +444,7 @@ class WireguardTunnel {
           this.#timers.sessionEstablished < this.#timers.lastDataPacketSent &&
           now - this.#timers.sessionEstablished >= REKEY_AFTER_TIME
         ) {
-          this.#logger.debug(() => `[tunnel] tick: rekey (REKEY_AFTER_TIME on send)`)
+          this.#logger.debug(() => `[TUNNEL] tick: rekey (REKEY_AFTER_TIME on send)`)
           handshakeRequired = true
         }
 
@@ -452,7 +452,7 @@ class WireguardTunnel {
           this.#timers.sessionEstablished < this.#timers.lastDataPacketReceived &&
           now - this.#timers.sessionEstablished >= REJECT_AFTER_TIME - KEEPALIVE_TIMEOUT - REKEY_TIMEOUT
         ) {
-          this.#logger.debug(() => `[tunnel] tick: rekey (REJECT_AFTER_TIME - KEEPALIVE - REKEY on recv)`)
+          this.#logger.debug(() => `[TUNNEL] tick: rekey (REJECT_AFTER_TIME - KEEPALIVE - REKEY on recv)`)
           handshakeRequired = true
         }
       }
@@ -462,7 +462,7 @@ class WireguardTunnel {
         now - this.#timers.lastPacketReceived >= KEEPALIVE_TIMEOUT + REKEY_TIMEOUT &&
         this.#wantHandshake
       ) {
-        this.#logger.debug(() => `[tunnel] tick: rekey (KEEPALIVE + REKEY_TIMEOUT no response)`)
+        this.#logger.debug(() => `[TUNNEL] tick: rekey (KEEPALIVE + REKEY_TIMEOUT no response)`)
         this.#wantHandshake = false
         handshakeRequired = true
       }
@@ -473,7 +473,7 @@ class WireguardTunnel {
           now - this.#timers.lastPacketSent >= KEEPALIVE_TIMEOUT &&
           this.#wantKeepalive
         ) {
-          this.#logger.debug(() => `[tunnel] tick: sending keepalive (KEEPALIVE_TIMEOUT)`)
+          this.#logger.debug(() => `[TUNNEL] tick: sending keepalive (KEEPALIVE_TIMEOUT)`)
           this.#wantKeepalive = false
           keepaliveRequired = true
         }
@@ -482,7 +482,7 @@ class WireguardTunnel {
           this.#persistentKeepalive > 0 &&
           now - this.#timers.persistentKeepalive >= this.#persistentKeepalive * 1000
         ) {
-          this.#logger.debug(() => `[tunnel] tick: persistent keepalive`)
+          this.#logger.debug(() => `[TUNNEL] tick: persistent keepalive`)
           this.#timerTick('persistentKeepalive')
           keepaliveRequired = true
         }

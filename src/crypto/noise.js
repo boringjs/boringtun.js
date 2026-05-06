@@ -173,12 +173,12 @@ class Session {
   receivePacketData(receiverIdx, counter, encryptedData) {
     if (receiverIdx !== this.receivingIndex) {
       this.#logger.debug(
-        () => `[session] receivePacketData: wrong index got=${receiverIdx} expected=${this.receivingIndex}`,
+        () => `[SESSION] receivePacketData: wrong index got=${receiverIdx} expected=${this.receivingIndex}`,
       )
       return null
     }
     if (!this.#receivingCounter.willAccept(counter)) {
-      this.#logger.debug(() => `[session] receivePacketData: counter ${counter} rejected by replay window`)
+      this.#logger.debug(() => `[SESSION] receivePacketData: counter ${counter} rejected by replay window`)
       return null
     }
 
@@ -187,13 +187,13 @@ class Session {
       const plaintext = aeadOpen(this.#receivingKey, nonce, encryptedData, Buffer.alloc(0))
 
       if (!this.#receivingCounter.markDidReceive(counter)) {
-        this.#logger.debug(() => `[session] receivePacketData: counter ${counter} rejected on mark`)
+        this.#logger.debug(() => `[SESSION] receivePacketData: counter ${counter} rejected on mark`)
         return null
       }
 
       return plaintext
     } catch (e) {
-      this.#logger.warn(() => `[session] receivePacketData: AEAD decryption failed: ${e.message}`)
+      this.#logger.warn(() => `[SESSION] receivePacketData: AEAD decryption failed: ${e.message}`)
       return null
     }
   }
@@ -239,7 +239,7 @@ class Handshake {
   }
 
   setExpired() {
-    this.#logger.debug(() => '[handshake] setExpired')
+    this.#logger.debug(() => '[HANDSHAKE] setExpired')
     this.#expired = true
     this.#state = { type: 'expired' }
     this.#previous = { type: 'expired' }
@@ -289,7 +289,7 @@ class Handshake {
     const dst = Buffer.alloc(HANDSHAKE_INIT_SZ)
     const localIndex = this.#incIndex()
 
-    this.#logger.debug(() => `[handshake] formatHandshakeInitiation: localIndex=${localIndex}`)
+    this.#logger.debug(() => `[HANDSHAKE] formatHandshakeInitiation: localIndex=${localIndex}`)
 
     let chainingKey = Buffer.from(INITIAL_CHAIN_KEY)
     let hash = Buffer.from(INITIAL_CHAIN_HASH)
@@ -336,23 +336,23 @@ class Handshake {
       timeSent: timeNow,
     }
 
-    this.#logger.debug(() => `[handshake] formatHandshakeInitiation: done, state=init_sent`)
+    this.#logger.debug(() => `[HANDSHAKE] formatHandshakeInitiation: done, state=init_sent`)
     return this.#appendMac1AndMac2(localIndex, dst)
   }
 
   receiveHandshakeInitiation(src) {
-    this.#logger.debug(() => `[handshake] receiveHandshakeInitiation: src.length=${src.length}`)
+    this.#logger.debug(() => `[HANDSHAKE] receiveHandshakeInitiation: src.length=${src.length}`)
 
     if (src.length !== HANDSHAKE_INIT_SZ) {
       this.#logger.warn(
-        () => `[handshake] receiveHandshakeInitiation: bad length ${src.length}, expected ${HANDSHAKE_INIT_SZ}`,
+        () => `[HANDSHAKE] receiveHandshakeInitiation: bad length ${src.length}, expected ${HANDSHAKE_INIT_SZ}`,
       )
       return null
     }
 
     const packetType = src.readUInt32LE(0)
     if (packetType !== 1) {
-      this.#logger.warn(() => `[handshake] receiveHandshakeInitiation: bad packet type ${packetType}`)
+      this.#logger.warn(() => `[HANDSHAKE] receiveHandshakeInitiation: bad packet type ${packetType}`)
       return null
     }
 
@@ -363,7 +363,7 @@ class Handshake {
 
     this.#logger.debug(
       () =>
-        `[handshake] receiveHandshakeInitiation: peerIndex=${peerIndex} ephPub=${peerEphemeralPublic.subarray(0, 4).toString('hex')}...`,
+        `[HANDSHAKE] receiveHandshakeInitiation: peerIndex=${peerIndex} ephPub=${peerEphemeralPublic.subarray(0, 4).toString('hex')}...`,
     )
 
     let chainingKey = Buffer.from(INITIAL_CHAIN_KEY)
@@ -382,18 +382,18 @@ class Handshake {
     try {
       peerStaticDecrypted = aead_chacha20_open(key, 0, encryptedStatic, hash)
     } catch (e) {
-      this.#logger.warn(() => `[handshake] receiveHandshakeInitiation: AEAD open encrypted_static failed: ${e.message}`)
+      this.#logger.warn(() => `[HANDSHAKE] receiveHandshakeInitiation: AEAD open encrypted_static failed: ${e.message}`)
       return null
     }
 
     if (!crypto.timingSafeEqual(this.#peerStaticPublic, peerStaticDecrypted)) {
-      this.#logger.warn(() => `[handshake] receiveHandshakeInitiation: peer static key mismatch`)
-      this.#logger.warn(() => `[handshake]   expected: ${this.#peerStaticPublic.toString('hex')}`)
-      this.#logger.warn(() => `[handshake]   got:      ${peerStaticDecrypted.toString('hex')}`)
+      this.#logger.warn(() => `[HANDSHAKE] receiveHandshakeInitiation: peer static key mismatch`)
+      this.#logger.warn(() => `[HANDSHAKE]   expected: ${this.#peerStaticPublic.toString('hex')}`)
+      this.#logger.warn(() => `[HANDSHAKE]   got:      ${peerStaticDecrypted.toString('hex')}`)
       return null
     }
 
-    this.#logger.debug(() => `[handshake] receiveHandshakeInitiation: peer static key verified`)
+    this.#logger.debug(() => `[HANDSHAKE] receiveHandshakeInitiation: peer static key verified`)
 
     hash = b2s_hash(hash, encryptedStatic)
 
@@ -406,17 +406,17 @@ class Handshake {
       timestamp = aead_chacha20_open(key2, 0, encryptedTimestamp, hash)
     } catch (e) {
       this.#logger.warn(
-        () => `[handshake] receiveHandshakeInitiation: AEAD open encrypted_timestamp failed: ${e.message}`,
+        () => `[HANDSHAKE] receiveHandshakeInitiation: AEAD open encrypted_timestamp failed: ${e.message}`,
       )
       return null
     }
 
-    this.#logger.debug(() => `[handshake] receiveHandshakeInitiation: timestamp=${timestamp.toString('hex')}`)
+    this.#logger.debug(() => `[HANDSHAKE] receiveHandshakeInitiation: timestamp=${timestamp.toString('hex')}`)
 
     if (!tai64nAfter(timestamp, this.#lastHandshakeTimestamp)) {
       this.#logger.warn(
         () =>
-          `[handshake] receiveHandshakeInitiation: timestamp not after last (replay?) last=${this.#lastHandshakeTimestamp.toString('hex')}`,
+          `[HANDSHAKE] receiveHandshakeInitiation: timestamp not after last (replay?) last=${this.#lastHandshakeTimestamp.toString('hex')}`,
       )
       return null
     }
@@ -428,13 +428,13 @@ class Handshake {
     const receivingMac1Key = b2s_hash(LABEL_MAC1, this.#staticPublic)
     const expectedMac1 = b2s_keyed_mac_16(receivingMac1Key, src.subarray(0, mac1Off))
     if (!crypto.timingSafeEqual(expectedMac1, src.subarray(mac1Off, mac1Off + 16))) {
-      this.#logger.warn(() => `[handshake] receiveHandshakeInitiation: mac1 mismatch`)
-      this.#logger.warn(() => `[handshake]   expected: ${expectedMac1.toString('hex')}`)
-      this.#logger.warn(() => `[handshake]   got:      ${src.subarray(mac1Off, mac1Off + 16).toString('hex')}`)
+      this.#logger.warn(() => `[HANDSHAKE] receiveHandshakeInitiation: mac1 mismatch`)
+      this.#logger.warn(() => `[HANDSHAKE]   expected: ${expectedMac1.toString('hex')}`)
+      this.#logger.warn(() => `[HANDSHAKE]   got:      ${src.subarray(mac1Off, mac1Off + 16).toString('hex')}`)
       return null
     }
 
-    this.#logger.debug(() => `[handshake] receiveHandshakeInitiation: mac1 verified, forming response`)
+    this.#logger.debug(() => `[HANDSHAKE] receiveHandshakeInitiation: mac1 verified, forming response`)
 
     this.#previous = this.#state
     this.#state = {
@@ -450,7 +450,7 @@ class Handshake {
 
   #formatHandshakeResponse() {
     if (this.#state.type !== 'init_received') {
-      this.#logger.warn(() => `[handshake] formatHandshakeResponse: wrong state ${this.#state.type}`)
+      this.#logger.warn(() => `[HANDSHAKE] formatHandshakeResponse: wrong state ${this.#state.type}`)
       return null
     }
 
@@ -464,7 +464,7 @@ class Handshake {
     const { privateKey: ephemeralPrivate, publicKey: ephemeralPublic } = generateX25519KeyPair()
     const localIndex = this.#incIndex()
 
-    this.#logger.debug(() => `[handshake] formatHandshakeResponse: localIndex=${localIndex} peerIndex=${peerIndex}`)
+    this.#logger.debug(() => `[HANDSHAKE] formatHandshakeResponse: localIndex=${localIndex} peerIndex=${peerIndex}`)
 
     dst.writeUInt32LE(2, 0) // HANDSHAKE_RESP
     dst.writeUInt32LE(localIndex, 4)
@@ -501,24 +501,24 @@ class Handshake {
 
     const session = new Session(localIndex, peerIndex, sessionKey2, sessionKey3, this.#logger)
     this.#logger.debug(
-      () => `[handshake] formatHandshakeResponse: done, session localIdx=${localIndex} peerIdx=${peerIndex}`,
+      () => `[HANDSHAKE] formatHandshakeResponse: done, session localIdx=${localIndex} peerIdx=${peerIndex}`,
     )
     return { packet: dst, session }
   }
 
   receiveHandshakeResponse(src) {
-    this.#logger.debug(() => `[handshake] receiveHandshakeResponse: src.length=${src.length}`)
+    this.#logger.debug(() => `[HANDSHAKE] receiveHandshakeResponse: src.length=${src.length}`)
 
     if (src.length !== HANDSHAKE_RESP_SZ) {
       this.#logger.warn(
-        () => `[handshake] receiveHandshakeResponse: bad length ${src.length}, expected ${HANDSHAKE_RESP_SZ}`,
+        () => `[HANDSHAKE] receiveHandshakeResponse: bad length ${src.length}, expected ${HANDSHAKE_RESP_SZ}`,
       )
       return null
     }
 
     const packetType = src.readUInt32LE(0)
     if (packetType !== 2) {
-      this.#logger.warn(() => `[handshake] receiveHandshakeResponse: bad packet type ${packetType}`)
+      this.#logger.warn(() => `[HANDSHAKE] receiveHandshakeResponse: bad packet type ${packetType}`)
       return null
     }
 
@@ -527,26 +527,26 @@ class Handshake {
     const peerEphemeralPublic = Buffer.from(src.subarray(12, 44))
     const encryptedNothing = src.subarray(44, 60)
 
-    this.#logger.debug(() => `[handshake] receiveHandshakeResponse: peerIndex=${peerIndex} receiverIdx=${receiverIdx}`)
-    this.#logger.debug(() => `[handshake]   state.type=${this.#state.type} previous.type=${this.#previous.type}`)
+    this.#logger.debug(() => `[HANDSHAKE] receiveHandshakeResponse: peerIndex=${peerIndex} receiverIdx=${receiverIdx}`)
+    this.#logger.debug(() => `[HANDSHAKE]   state.type=${this.#state.type} previous.type=${this.#previous.type}`)
 
     let state, isPrevious
     if (this.#state.type === 'init_sent' && this.#state.localIndex === receiverIdx) {
       state = this.#state
       isPrevious = false
-      this.#logger.debug(() => `[handshake]   matched current state, localIndex=${state.localIndex}`)
+      this.#logger.debug(() => `[HANDSHAKE]   matched current state, localIndex=${state.localIndex}`)
     } else if (this.#previous.type === 'init_sent' && this.#previous.localIndex === receiverIdx) {
       state = this.#previous
       isPrevious = true
-      this.#logger.debug(() => `[handshake]   matched previous state, localIndex=${state.localIndex}`)
+      this.#logger.debug(() => `[HANDSHAKE]   matched previous state, localIndex=${state.localIndex}`)
     } else {
       this.#logger.warn(
-        () => `[handshake] receiveHandshakeResponse: no matching init_sent state for receiverIdx=${receiverIdx}`,
+        () => `[HANDSHAKE] receiveHandshakeResponse: no matching init_sent state for receiverIdx=${receiverIdx}`,
       )
       if (this.#state.type === 'init_sent')
-        this.#logger.warn(() => `[handshake]   state.localIndex=${this.#state.localIndex}`)
+        this.#logger.warn(() => `[HANDSHAKE]   state.localIndex=${this.#state.localIndex}`)
       if (this.#previous.type === 'init_sent')
-        this.#logger.warn(() => `[handshake]   previous.localIndex=${this.#previous.localIndex}`)
+        this.#logger.warn(() => `[HANDSHAKE]   previous.localIndex=${this.#previous.localIndex}`)
       return null
     }
 
@@ -573,7 +573,7 @@ class Handshake {
     try {
       aead_chacha20_open(key, 0, encryptedNothing, hash)
     } catch (e) {
-      this.#logger.warn(() => `[handshake] receiveHandshakeResponse: AEAD open encrypted_nothing failed: ${e.message}`)
+      this.#logger.warn(() => `[HANDSHAKE] receiveHandshakeResponse: AEAD open encrypted_nothing failed: ${e.message}`)
       return null
     }
 
@@ -582,7 +582,7 @@ class Handshake {
     const sessionKey3 = b2s_hmac2(temp1, sessionKey2, Buffer.from([0x02]))
 
     this.lastRtt = Date.now() - state.timeSent
-    this.#logger.debug(() => `[handshake] receiveHandshakeResponse: success, rtt=${this.lastRtt}ms`)
+    this.#logger.debug(() => `[HANDSHAKE] receiveHandshakeResponse: success, rtt=${this.lastRtt}ms`)
 
     if (isPrevious) {
       this.#previous = { type: 'none' }
@@ -594,17 +594,17 @@ class Handshake {
   }
 
   receiveCookieReply(src) {
-    this.#logger.debug(() => `[handshake] receiveCookieReply: src.length=${src.length}`)
+    this.#logger.debug(() => `[HANDSHAKE] receiveCookieReply: src.length=${src.length}`)
     if (src.length !== COOKIE_REPLY_SZ) return false
     if (!this.#lastMac1) {
-      this.#logger.warn(() => `[handshake] receiveCookieReply: no lastMac1`)
+      this.#logger.warn(() => `[HANDSHAKE] receiveCookieReply: no lastMac1`)
       return false
     }
 
     const receiverIdx = src.readUInt32LE(4)
     if (receiverIdx !== this.#cookieIndex) {
       this.#logger.warn(
-        () => `[handshake] receiveCookieReply: wrong index got=${receiverIdx} expected=${this.#cookieIndex}`,
+        () => `[HANDSHAKE] receiveCookieReply: wrong index got=${receiverIdx} expected=${this.#cookieIndex}`,
       )
       return false
     }
@@ -617,14 +617,14 @@ class Handshake {
     try {
       const cookie = xchacha20_open(key, nonce, encryptedCookie, this.#lastMac1)
       if (cookie.length !== 16) {
-        this.#logger.warn(() => `[handshake] receiveCookieReply: bad cookie length ${cookie.length}`)
+        this.#logger.warn(() => `[HANDSHAKE] receiveCookieReply: bad cookie length ${cookie.length}`)
         return false
       }
       this.#writeCookie = cookie
-      this.#logger.debug(() => `[handshake] receiveCookieReply: cookie set`)
+      this.#logger.debug(() => `[HANDSHAKE] receiveCookieReply: cookie set`)
       return true
     } catch (e) {
-      this.#logger.warn(() => `[handshake] receiveCookieReply: decryption failed: ${e.message}`)
+      this.#logger.warn(() => `[HANDSHAKE] receiveCookieReply: decryption failed: ${e.message}`)
       return false
     }
   }

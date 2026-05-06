@@ -267,7 +267,7 @@ class Wireguard extends EventEmitter {
   }
 
   #onError(error) {
-    this.#logger.error(error) // todo
+    this.#logger.error(() => `[WG] server error: ${error?.message ?? error}`)
   }
 
   #createServerListeners() {
