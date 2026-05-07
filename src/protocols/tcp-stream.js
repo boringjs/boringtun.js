@@ -7,6 +7,7 @@ const IP4Packet = require('./ip4-packet.js')
 const Logger = require('../utils/logger.js')
 
 const SOCKET_CONNECTION_TIMEOUT = 30000
+const FIN_HANDSHAKE_TIMEOUT = 30000
 const DELTA = 1000 // todo rename
 const TCP_STREAM = '[TCP_STREAM]'
 
@@ -29,6 +30,7 @@ class TCPStream extends EventEmitter {
   #peerWindow = 65535
   #peerLastAck = null
   #paused = false
+  #finTimeout = null
   #delta = 0
   #id = 0
   #logger = /** @type{Logger} */ null
@@ -364,6 +366,10 @@ class TCPStream extends EventEmitter {
   }
 
   #emitClose() {
+    if (this.#finTimeout) {
+      clearTimeout(this.#finTimeout)
+      this.#finTimeout = null
+    }
     this.emit('close')
   }
 
@@ -470,6 +476,24 @@ class TCPStream extends EventEmitter {
     if (this.#tcpStage === 'established') {
       this.#tcpStage = 'fin_init'
       this.#emitIp4Packet(this.#createTCP({ FIN: true, ACK: true }))
+    }
+
+    // Force-emit close after a grace period if the FIN handshake never
+    // completes (peer gone, packet loss). Without this, the TCPContainer
+    // hash entry sticks forever and recycled source ports get blocked.
+    if (this.#tcpStage !== 'reset' && !this.#finTimeout) {
+      this.#finTimeout = setTimeout(() => {
+        this.#finTimeout = null
+        if (this.#tcpStage !== 'reset') {
+          this.#logger.debug?.(() => ({
+            f: `${TCP_STREAM}[id-${this.#socketId}]`,
+            log: `FIN handshake timed out (stage=${this.#tcpStage}); forcing close`,
+          }))
+          this.#tcpStage = 'reset'
+          this.#emitClose()
+        }
+      }, FIN_HANDSHAKE_TIMEOUT)
+      this.#finTimeout.unref?.()
     }
   }
 }
