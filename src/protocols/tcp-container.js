@@ -20,16 +20,19 @@ class TCPContainer extends EventEmitter {
   }
 
   send(ipv4Packet, tcpMessage) {
-    const { sourceIP, destinationIP } = ipv4Packet
+    const { sourceIP, destinationIP, peerId } = ipv4Packet
     const { sourcePort, destinationPort } = tcpMessage
 
-    const tcpStream = this.#getTCPStream({ sourceIP, destinationIP, sourcePort, destinationPort })
+    const tcpStream = this.#getTCPStream({ peerId, sourceIP, destinationIP, sourcePort, destinationPort })
 
     tcpStream.send(tcpMessage)
   }
 
-  #getTCPStreamHash({ sourceIP, destinationIP, sourcePort, destinationPort }) {
-    return `${TCP}:${sourceIP}:${sourcePort}:${destinationIP}:${destinationPort}`
+  // peerId is part of the hash so two distinct peers that happen to overlap
+  // sourceIP:sourcePort:destIP:destPort (rare but possible across NATed peers)
+  // can never alias into the same TCPStream.
+  #getTCPStreamHash({ peerId, sourceIP, destinationIP, sourcePort, destinationPort }) {
+    return `${TCP}:${peerId || ''}:${sourceIP}:${sourcePort}:${destinationIP}:${destinationPort}`
   }
 
   /**
@@ -39,8 +42,9 @@ class TCPContainer extends EventEmitter {
    * @param {number} destinationPort
    * @return {TCPStream}
    */
-  #getTCPStream({ sourceIP, destinationIP, sourcePort, destinationPort }) {
+  #getTCPStream({ peerId, sourceIP, destinationIP, sourcePort, destinationPort }) {
     const hash = this.#getTCPStreamHash({
+      peerId,
       sourceIP,
       sourcePort,
       destinationIP,
