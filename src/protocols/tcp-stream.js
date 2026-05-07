@@ -194,13 +194,28 @@ class TCPStream extends EventEmitter {
   /**
    * Capture peer's ack/window on every incoming TCP message; flush queued
    * outbound data if the window opened up.
+   *
+   * Cumulative ACKs only advance — duplicates and reordered packets carrying
+   * older ack numbers must not regress #peerLastAck, otherwise inflight gets
+   * inflated and the send-side flow control deadlocks. Window updates are
+   * always honored regardless of whether the ack number advanced.
    */
   #updatePeerAck(incomingTCPMessage) {
-    this.#peerLastAck = incomingTCPMessage.acknowledgmentNumber
     if (incomingTCPMessage.window !== undefined) {
       this.#peerWindow = incomingTCPMessage.window
     }
-    if (this.#sendQueue.size > 0) {
+
+    const newAck = incomingTCPMessage.acknowledgmentNumber
+    if (this.#peerLastAck === null) {
+      this.#peerLastAck = newAck
+    } else {
+      const advance = (newAck - this.#peerLastAck) >>> 0
+      if (advance !== 0 && advance < 0x80000000) {
+        this.#peerLastAck = newAck
+      }
+    }
+
+    if (this.#sendQueue.size > 0 || this.#paused) {
       this.#flushSendQueue()
     }
   }
