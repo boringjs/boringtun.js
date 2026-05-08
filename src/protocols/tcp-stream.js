@@ -25,7 +25,9 @@ class TCPStream extends EventEmitter {
   #connectionTimeout = null
   #sequenceNumberValue = 0
   #acknowledgmentNumberValue = 0
-  #packetDeque = new Deque()
+  #rcvNxt = null // next peer-seq we expect; advances only on in-order data
+  #pendingSegments = new Map() // seq -> data, segments arrived ahead of rcvNxt
+  #writeQueue = [] // in-order chunks waiting for the upstream socket to be writable
   #sendQueue = new Deque()
   #peerWindow = 65535
   #peerLastAck = null
@@ -285,27 +287,78 @@ class TCPStream extends EventEmitter {
   }
 
   /**
-   * @param {Buffer} data
-   * @throws
+   * Feed an incoming TCP data segment through reassembly. Advances #rcvNxt
+   * only when bytes arrive in order; buffers future segments by their
+   * sequence number; trims duplicates/overlaps.
+   *
+   * @param {number} seq starting peer-seq of `data`
+   * @param {Buffer} data payload bytes
+   */
+  #feedData(seq, data) {
+    if (!data || data.length === 0 || this.#rcvNxt === null) {
+      return
+    }
+
+    // Trim bytes that fall behind rcvNxt (duplicates, partial overlap).
+    const offset = (this.#rcvNxt - seq) >>> 0
+    if (offset !== 0 && offset < 0x80000000) {
+      if (offset >= data.length) {
+        // entirely already-delivered — drop
+        return
+      }
+      data = data.slice(offset)
+      seq = this.#rcvNxt
+    }
+
+    if (seq === this.#rcvNxt) {
+      this.#deliverInOrder(data)
+      this.#rcvNxt = (this.#rcvNxt + data.length) >>> 0
+      this.#drainPending()
+    } else {
+      // Future segment — buffer until rcvNxt catches up. Skip if we already
+      // have a copy at this seq (defensive against retransmits).
+      if (!this.#pendingSegments.has(seq)) {
+        this.#pendingSegments.set(seq, data)
+      }
+    }
+  }
+
+  #deliverInOrder(data) {
+    if (this.#socketStage === 'established' && this.#socket?.writable) {
+      this.#socket.write(data)
+    } else {
+      this.#writeQueue.push(data)
+    }
+  }
+
+  #drainPending() {
+    while (this.#pendingSegments.has(this.#rcvNxt)) {
+      const data = this.#pendingSegments.get(this.#rcvNxt)
+      this.#pendingSegments.delete(this.#rcvNxt)
+      this.#deliverInOrder(data)
+      this.#rcvNxt = (this.#rcvNxt + data.length) >>> 0
+    }
+  }
+
+  /**
+   * Flush any in-order chunks that were queued before the upstream socket
+   * was writable (called after #onSocketConnect transitions to 'established').
    */
   #writeDataToSocket() {
-    if (!this.#packetDeque.size) {
+    if (!this.#writeQueue.length) {
       return
     }
 
     if (this.#socketStage !== 'established') {
-      // this.#logger.debug(() => '[TCP_STREAM] socket is not connected')
       return
     }
 
     if (!this.#socket?.writable) {
-      // this.#logger.debug(() => '[TCP_STREAM] socket is not writable')
       return
     }
 
-    while (this.#packetDeque.size) {
-      const data = this.#packetDeque.shift().data
-      this.#socket.write(data)
+    while (this.#writeQueue.length > 0) {
+      this.#socket.write(this.#writeQueue.shift())
     }
   }
 
@@ -412,6 +465,7 @@ class TCPStream extends EventEmitter {
       this.#tcpStage = 'syn'
       this.#sequenceNumber = this.#getRandomSequenceNumber()
       this.#acknowledgmentNumber = incomingTCPMessage.sequenceNumber + 1
+      this.#rcvNxt = this.#acknowledgmentNumber
       const ipv4TCPSynAckMessage = this.#createTCP({ SYN: true, ACK: true })
 
       this.#connect(ipv4TCPSynAckMessage)
@@ -439,12 +493,12 @@ class TCPStream extends EventEmitter {
     } // return
 
     if (incomingTCPMessage.ACK) {
-      this.#packetDeque.push(incomingTCPMessage)
-      this.#acknowledgmentNumber =
-        incomingTCPMessage.sequenceNumber +
-        incomingTCPMessage.data.length +
-        (incomingTCPMessage.FIN ? 1 : 0) +
-        (incomingTCPMessage.SYN ? 1 : 0)
+      // Reassemble out-of-order segments before delivery — UDP under
+      // WireGuard can reorder, so writing in arrival order corrupts streams.
+      this.#feedData(incomingTCPMessage.sequenceNumber, incomingTCPMessage.data)
+      // Our outgoing ACK reflects rcvNxt so the peer knows what we have
+      // contiguously; #acknowledgmentNumber is kept in sync for #createTCP.
+      this.#acknowledgmentNumber = this.#rcvNxt
       this.#emitIp4Packet(this.#createTCP({ ACK: true }))
       this.#updatePeerAck(incomingTCPMessage)
     } else {
